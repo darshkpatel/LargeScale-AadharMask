@@ -2,6 +2,7 @@ from flask import Flask, Response, request, jsonify, redirect, url_for, render_t
 from werkzeug.utils import secure_filename
 import json,os,base64
 from image_processors import qrcode
+from image_processors import text_mask
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 
 
@@ -13,13 +14,42 @@ app.config['SECRET_KEY'] = 'secret!'
 @app.route("/ping")
 def ping():
     return "Pong"
+@app.route("/")
+def index():
+    return "Please Check URL Endpoint"
 
 
 # URL Routes
+@app.route('/mask', methods=['GET', 'POST'])
+def upload_file1():
+    if request.method == 'POST':
+        # check if the post request has the file part
+        if 'file' not in request.files:
+            return jsonify({'error':'Empty File'})
+        file = request.files['file']
 
+        # if user does not select file, browser also
+        # submit an empty part without filename
+        if file.filename == '':
+            return jsonify({'error':'Empty File'})
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
 
-@app.route('/', methods=['GET', 'POST'])
-def upload_file():
+            result = str(text_mask.text_mask(file.read()), "utf-8")
+            result = "data:image/jpg;base64,"+result
+            return("<img src=\""+result+"\">")
+    return '''
+    <!doctype html>
+    <title>Test Masking Endpoint</title>
+    <h1>Test Making Endpoint</h1>
+    <h3>Upload Any .jpg file</h3>
+    <form method=post action="/mask" enctype=multipart/form-data>
+      <input type=file name=file accept="image/*">
+      <input type=submit value=Upload>
+    </form>
+    '''
+@app.route('/aadhar', methods=['GET', 'POST'])
+def aadhar():
     if request.method == 'POST':
         # check if the post request has the file part
         if 'file' not in request.files:
@@ -45,7 +75,7 @@ def upload_file():
     <!doctype html>
     <title>Upload new File</title>
     <h1>Upload new File</h1>
-    <form method=post enctype=multipart/form-data>
+    <form method=post action="/aadhar" enctype=multipart/form-data>
       <input type=file name=file accept="image/*">
       <input type=submit value=Upload>
     </form>
