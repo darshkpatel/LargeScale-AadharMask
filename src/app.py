@@ -41,7 +41,7 @@ def upload_file1():
     return '''
     <!doctype html>
     <title>Test Masking Endpoint</title>
-    <h1>Test Making Endpoint</h1>
+    <h1>Test Masking Endpoint</h1>
     <h3>Upload Any .jpg file</h3>
     <form method=post action="/mask" enctype=multipart/form-data>
       <input type=file name=file accept="image/*">
