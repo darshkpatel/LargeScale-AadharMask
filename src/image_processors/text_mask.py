@@ -36,9 +36,7 @@ def text_mask(img, east="frozen_east_text_detection.pb", min_confidence=0.5, wid
     # define the two output layer names for the EAST detector model that
     # we are interested -- the first is the output probabilities and the
     # second can be used to derive the bounding box coordinates of text
-    layerNames = [
-        "feature_fusion/Conv_7/Sigmoid",
-        "feature_fusion/concat_3"]
+    layerNames = ["feature_fusion/Conv_7/Sigmoid", "feature_fusion/concat_3"]
 
     # load the pre-trained EAST text detector
     print("[INFO] loading EAST text detector...")
