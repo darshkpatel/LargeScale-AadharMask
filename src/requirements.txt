@@ -20,3 +20,4 @@ Werkzeug==0.15.2
 wrapt==1.11.1
 pandas
 pytesseract
+flask_limiter

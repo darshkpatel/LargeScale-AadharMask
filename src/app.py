@@ -1,6 +1,9 @@
 from flask import Flask, Response, request, jsonify, redirect, url_for, render_template,session, abort, flash,logging
 from werkzeug.utils import secure_filename
 import json,os,base64
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
 from image_processors import qrcode
 from image_processors import text_mask
 from image_processors import selective_mask
@@ -9,7 +12,11 @@ ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
 
 #Sanity Check
 @app.route("/ping")
@@ -54,6 +61,7 @@ def upload_file1():
 
 # Mask Specific Parts
 @app.route('/mask_aadhar', methods=['GET', 'POST'])
+@limiter.limit("3 per hour")
 def mask_aadhar_specific():
     if request.method == 'POST':
         # check if the post request has the file part
