@@ -58,7 +58,7 @@ def identify_blobs_backup(img):
         text = text.replace(' ','')
         chk = [x.isdigit() for x in list(text)]
         print(text)
-        if chk.count(True)>=4 'Y' not in chk:
+        if chk.count(True)>=4 and 'Y' not in chk:
 
 
             cv2.rectangle(orig, (x, y), (x + w, y + h), (0, 255, 0), -1)
