@@ -9,164 +9,69 @@ from scipy import misc
 import pytesseract
 from PIL import Image, ImageEnhance, ImageFilter
 from pdf2image import convert_from_path
+import os
+from pytesseract import Output
 
+import argparse
 ap = argparse.ArgumentParser()
-ap.add_argument("-i", "--image", type=str, help="path to input image")
-ap.add_argument(
-    "-east", "--east", type=str, help="path to input EAST text detector")
-ap.add_argument(
-    "-c",
-    "--min-confidence",
-    type=float,
-    default=0.5,
-    help="minimum probability required to inspect a region")
-ap.add_argument(
-    "-w",
-    "--width",
-    type=int,
-    default=320,
-    help="resized image width (should be multiple of 32)")
-ap.add_argument(
-    "-e",
-    "--height",
-    type=int,
-    default=320,
-    help="resized image height (should be multiple of 32)")
+ap.add_argument("-p", "--pdf", type=str, help="path to input pdf")
 args = vars(ap.parse_args())
-image = cv2.imread(args["image"])
-def identify_blobs():
-    global image
+def pdf_to_img(img):
+    for a in os.listdir('temp/'):
+        os.remove('temp/'+a)
+    for a in os.listdir('outputs/'):
+        os.remove('outputs/'+a)
 
-    orig = image.copy()
-    (H, W) = image.shape[:2]
-
-    (newW, newH) = (args["width"], args["height"])
-    rW = W / float(newW)
-    rH = H / float(newH)
-
-    image = cv2.resize(image, (newW, newH))
-    (H, W) = image.shape[:2]
-    layerNames = ["feature_fusion/Conv_7/Sigmoid", "feature_fusion/concat_3"]
-
-    print("[INFO] loading EAST text detector...")
-    net = cv2.dnn.readNet(args["east"])
-
-    blob = cv2.dnn.blobFromImage(
-        image, 1.0, (W, H), (123.68, 116.78, 103.94), swapRB=True, crop=False)
-    start = time.time()
-    net.setInput(blob)
-    (scores, geometry) = net.forward(layerNames)
-    end = time.time()
-
-    print("[INFO] text detection took {:.6f} seconds".format(end - start))
-
-    (numRows, numCols) = scores.shape[2:4]
-    rects = []
-    confidences = []
-
-    for y in range(0, numRows):
-
-        scoresData = scores[0, 0, y]
-        xData0 = geometry[0, 0, y]
-        xData1 = geometry[0, 1, y]
-        xData2 = geometry[0, 2, y]
-        xData3 = geometry[0, 3, y]
-        anglesData = geometry[0, 4, y]
-
-        for x in range(0, numCols):
-
-            if scoresData[x] < args["min_confidence"]:
-                continue
-
-            (offsetX, offsetY) = (x * 4.0, y * 4.0)
-
-            angle = anglesData[x]
-            cos = np.cos(angle)
-            sin = np.sin(angle)
-
-            h = xData0[x] + xData2[x]
-            w = xData1[x] + xData3[x]
-
-            endX = int(offsetX + (cos * xData1[x]) + (sin * xData2[x]))
-            endY = int(offsetY - (sin * xData1[x]) + (cos * xData2[x]))
-            startX = int(endX - w)
-            startY = int(endY - h)
-
-            rects.append((startX, startY, endX, endY))
-            confidences.append(scoresData[x])
-    boxes = non_max_suppression(np.array(rects), probs=confidences)
-
-    for (startX, startY, endX, endY) in boxes:
-
-        startX = int(startX * rW)
-        startY = int(startY * rH)
-        endX = int(endX * rW)
-        endY = int(endY * rH)
-
-        cv2.rectangle(orig, (startX, startY), (endX, endY), (0, 255, 0), 2)
-
-    # cv2.imshow('test',orig)
-    # cv2.waitKey(0)
-
-    return boxes
-
-def censor(boxes):
-    rois= []
-    global image
-    (H, W) = image.shape[:2]
-    # copy_img = image.copy()
-
-    (newW, newH) = (args["width"], args["height"])
-    rW = W / float(newW)
-    rH = H / float(newH)
-
-    digits = datasets.load_digits()
-    features = digits.data
-    labels = digits.target
-
-    clf = SVC(gamma = 0.001)
-    clf.fit(features, labels)
-    for (startX, startY, endX, endY) in boxes:
-
-        startX = int(startX * rW)
-        startY = int(startY * rH)
-        endX = int(endX * rW)
-        endY = int(endY * rH)
-
-        temp = image[startY:endY,startX:endX]
-        # gray = cv2.cvtColor(temp, cv2.COLOR_BGR2GRAY)
-
-        # gray = cv2.threshold(gray, 0, 255,
-            # cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-
-        # gray = cv2.medianBlur(gray, 3)
-
-        text = pytesseract.image_to_string(temp,lang='eng',
-           config='--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789')
-        print(text)
-
-        cv2.imshow('test',temp)
-        cv2.waitKey(0)
-        # break
-        chk = [x.isdigit() for x in list(text)].count(True)
-        if chk>1:
-
-            rois.append((startX,startY,endX,endY))
-
-
-    for a in rois:
-        cv2.rectangle(image, (a[0], a[1]), (a[2], a[3]), (0, 255, 0), -1)
-
-    cv2.imshow('aad',image)
-    cv2.waitKey(0)
-
-
-def pdf_to_img():
-    pages = convert_from_path('test.pdf', 500)
+    pages = convert_from_path(img, 500)
+    count=0
     for page in pages:
-        image = Image.frombytes('RGBA', (128,128), page, 'raw')
+        page.save('temp/'+str(count)+'.jpg')
+        count+=1
 
 
-# censor(identify_blobs())
-# identify_blobs()
-pdf_to_img()
+def ip(img):
+    lower_black = np.array([0,0,0], dtype = "uint16")
+    upper_black = np.array([70,70,70], dtype = "uint16")
+    image = cv2.inRange(img, lower_black, upper_black)
+    image = cv2.bitwise_not(image)
+    print(['[INFO] Done thresholding'])
+
+    # cv2.imshow('mask0',image)
+    # cv2.waitKey(0)
+    return image
+
+def identify_blobs_backup(img):
+    # global orig
+    d = pytesseract.image_to_data(img, output_type=Output.DICT)
+    n_boxes = len(d['level'])
+    print('[INFO] {} ROIS'.format(n_boxes-1))
+    for i in range(1,n_boxes):
+        (x, y, w, h) = (d['left'][i], d['top'][i], d['width'][i], d['height'][i])
+
+        temp = img[y:y+h,x:x+w]
+
+
+        print('[INFO] Extracting from ROI {}'.format(i))
+        text = pytesseract.image_to_string(temp,lang='eng',
+                   config='--psm 10 --oem 3 -c tessedit_char_whitelist=0123456789')
+        text = ''.join(list(text))
+        text = text.replace(' ','')
+        chk = [x.isdigit() for x in list(text)]
+        print(text)
+        if chk.count(True)>=4 'Y' not in chk:
+
+
+            cv2.rectangle(orig, (x, y), (x + w, y + h), (0, 255, 0), -1)
+
+
+    # cv2.imwrite('temp/0.jpg',orig)
+    return orig
+
+
+# orig = cv2.imread('outputs/0.jpg')
+
+pdf_to_img(args['pdf'])
+for a in os.listdir('temp'):
+    print('[INFO] image {}'.format(a))
+    orig = cv2.imread('temp/'+a)
+    cv2.imwrite('outputs/'+a,identify_blobs_backup(ip(orig)))
