@@ -62,7 +62,7 @@ def upload_file1():
 
 # Mask Specific Parts
 @app.route('/mask_aadhar', methods=['GET', 'POST'])
-@limiter.limit("3 per hour")
+@limiter.limit("40 per hour")
 def mask_aadhar_specific():
     if request.method == 'POST':
         # check if the post request has the file part
@@ -129,7 +129,7 @@ def mask_aadhar_pdf():
     <h1>Test Masking Endpoint</h1>
     <h3>Upload Any .pdf file</h3>
     <form method=post action="/mask_aadhar_pdf" enctype=multipart/form-data>
-      <input type=file name=file accept="image/*">
+      <input type=file name=file accept="application/pdf">
       <input type=submit value=Upload>
     </form>
     '''
