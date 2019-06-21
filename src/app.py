@@ -7,7 +7,8 @@ from flask_limiter.util import get_remote_address
 from image_processors import qrcode
 from image_processors import text_mask
 from image_processors import selective_mask
-ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
+from pdf_processors.adhar_subha import parse_pdf
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'pdf'])
 
 
 app = Flask(__name__)
@@ -94,6 +95,40 @@ def mask_aadhar_specific():
     <h1>Test Masking Endpoint</h1>
     <h3>Upload Any .jpg file</h3>
     <form method=post action="/mask_aadhar" enctype=multipart/form-data>
+      <input type=file name=file accept="image/*">
+      <input type=submit value=Upload>
+    </form>
+    '''
+# PDF SUBHADITYA
+@app.route('/mask_aadhar_pdf', methods=['GET', 'POST'])
+@limiter.limit("3 per hour")
+def mask_aadhar_pdf():
+    if request.method == 'POST':
+        # check if the post request has the file part
+        if 'file' not in request.files:
+            return jsonify({'error':'Empty File'})
+        file = request.files['file']
+
+        # if user does not select file, browser also
+        # submit an empty part without filename
+        if file.filename == '':
+            return jsonify({'error':'Empty File'})
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            file.save(os.path.join("./", filename))
+            imageString = parse_pdf(os.path.join("./", filename))
+            result = "data:image/jpg;base64,"+str(imageString, "utf-8")
+            return("<img src=\""+result+"\">")
+        else:
+            return jsonify({'error':'Empty File'})
+
+            
+    return '''
+    <!doctype html>
+    <title>Test Masking Endpoint</title>
+    <h1>Test Masking Endpoint</h1>
+    <h3>Upload Any .pdf file</h3>
+    <form method=post action="/mask_aadhar_pdf" enctype=multipart/form-data>
       <input type=file name=file accept="image/*">
       <input type=submit value=Upload>
     </form>
