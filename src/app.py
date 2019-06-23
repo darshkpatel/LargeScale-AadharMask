@@ -3,10 +3,15 @@ from werkzeug.utils import secure_filename
 import json,os,base64
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-
+import tempfile
+import cv2
+import base64
 from image_processors import qrcode
 from image_processors import text_mask
 from image_processors import selective_mask
+from image_processors import pdf_to_cv
+from image_processors import crop_image
+from image_processors import new_mask
 from pdf_processors.adhar_subha import parse_pdf
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'pdf'])
 
@@ -96,6 +101,61 @@ def mask_aadhar_specific():
     <h3>Upload Any .jpg file</h3>
     <form method=post action="/mask_aadhar" enctype=multipart/form-data>
       <input type=file name=file accept="image/*">
+      <input type=submit value=Upload>
+    </form>
+    '''
+
+
+"""
+
+NEW MASKING SCRIPT
+
+"""
+
+
+
+@app.route('/new_aadhar', methods=['GET', 'POST'])
+@limiter.limit("40 per hour")
+def new_aadhar():
+    if request.method == 'POST':
+        # check if the post request has the file part
+        if 'file' not in request.files:
+            return jsonify({'error':'Empty File'})
+        file = request.files['file']
+
+        # if user does not select file, browser also
+        # submit an empty part without filename
+        if file.filename == '':
+            return jsonify({'error':'Empty File'})
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            print(filename)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                filepath = os.path.join(tmpdir, filename)
+                file.save(filepath)
+                if filepath.split(".")[-1]=="pdf":
+                    img = pdf_to_cv.read(filepath)
+                else:
+                    img = cv2.imread(filepath)
+                error, result = new_mask.mask_image(img)
+                if error:
+                    return("Unable to mask")
+
+                retval, buffer = cv2.imencode('.jpg', result)
+                jpg_as_text = base64.b64encode(buffer)
+                result = "data:image/jpg;base64,"+str(jpg_as_text, "utf-8")
+                return("<img src=\""+result+"\">")
+        else:
+            return jsonify({'error':'Empty File'})
+
+            
+    return '''
+    <!doctype html>
+    <title>Test Masking Endpoint</title>
+    <h1>Test Masking Endpoint</h1>
+    <h3>Upload Any file</h3>
+    <form method=post action="/new_aadhar" enctype=multipart/form-data>
+      <input type=file name=file accept="*">
       <input type=submit value=Upload>
     </form>
     '''
