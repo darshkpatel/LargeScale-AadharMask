@@ -1,5 +1,6 @@
-from src.image_processors.new_mask import mask_image
-import argparse, os
+from src.image_processors import new_mask
+from src.image_processors import pdf_to_cv
+import argparse, os, cv2
 
 # Handle Directory Parsing
 def dir_path(string):
@@ -28,7 +29,32 @@ f = []
 for (dirpath, dirnames, filenames) in os.walk(args.dirpath):
     f.extend(filenames)
     break
-print("Processing {} files in {}".format(len(f), args.dirpath))
 
 
+total_files = len(f)
+print("Processing {} files in {}".format(total_files, args.dirpath))
 
+if not os.path.exists(os.path.join(args.dirpath,"processed")):
+    print("[INFO] Creating Processed Files Directory")
+    os.makedirs(os.path.join(args.dirpath,"processed"))
+    
+
+for index,file in enumerate(f):
+    print("[INFO] Processing File {} / {} => {} ".format(index+1,total_files,file))
+    if file.split(".")[-1]=="pdf":
+        img = pdf_to_cv.read(os.path.join(args.dirpath,file))
+    elif file.split(".")[-1] in ["jpg","jpeg","pdf","png"]:
+        img = cv2.imread(os.path.join(args.dirpath,file))
+    else:
+        print("[ERROR] {} is not a supported image or PDF".format(file))
+        continue
+    if args.nocrop:
+        error, result = new_mask.mask_image(img, crop=False)
+    else:
+        error, result = new_mask.mask_image(img, crop=True)
+    if error:
+        print("[ERROR] Cannot Process {}".format(file))
+    else:
+        filename = '.'.join(file.split('.')[:-1])+".png"
+        cv2.imwrite(os.path.join(args.dirpath,"processed",filename),result)
+        print("[INFO] Processed {}".format(file))
