@@ -107,7 +107,7 @@ def mask_image(img ,thresh=15, crop=True):
     if aadhar_uid.empty:
         print("[ERROR] Unable to process image, no UID found")
         return True, ""
-    to_mask = aadhar_uid.head(2)
+    to_mask = aadhar_uid.groupby('block_num').head(2).reset_index(drop=True)
     try:
         masked_image = mask(orig,to_mask)
     except Exception as e:
