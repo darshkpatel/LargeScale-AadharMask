@@ -1,6 +1,8 @@
 astroid==2.2.5
 Click==7.0
 Flask==1.0.2
+celery
+redis
 future==0.17.1
 imutils==0.5.2
 isort==4.3.18
