@@ -2,15 +2,34 @@ version: '3'
 services:
   web:
     build: .
-    command: "python3 -u app.py"
+    # command: "python3 -u app.py"
+    command: "gunicorn -w 3 -t 120 -b 0.0.0.0:5000 --reload --access-logfile - app:app"
     ports:
       - "5002:5000"
     volumes:
       - ./src:/app
     depends_on:
         - redis
+        - mongodb
+        - celery
+    environment:
+      PYTHONUNBUFFERED: 'true'
     links:
         - "redis:redis_cache"
+        - "mongodb:mongo"
+
+  celery:
+    build: .
+    command: celery -A app.celery worker -l info
+    links:
+        - "redis:redis_cache"
+        - "mongodb:mongo"
+    volumes:
+      - ./src:/app
+    depends_on:
+        - redis
+        - mongodb
+
         
   redis:
       image: "redis:alpine"
@@ -21,7 +40,17 @@ services:
   #       - '6379:6379'
       volumes:
           - redis-data:/data
-
+  mongodb:
+    image: mongo:latest
+    container_name: "mongodb"
+    environment:
+      - MONGO_DATA_DIR=/usr/data/db
+      - MONGO_LOG_DIR=/dev/null
+    volumes:
+      - ./data/db:/usr/data/db
+    # ports:
+    #   - 27017:27017
+    command: mongod --smallfiles --logpath=/dev/null # --quiet
 
 volumes:
   redis-data:
