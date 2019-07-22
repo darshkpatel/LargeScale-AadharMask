@@ -48,10 +48,10 @@ services:
       - MONGO_DATA_DIR=/usr/data/db
       - MONGO_LOG_DIR=/dev/null
     volumes:
-      - ./data/db:/usr/data/db
+      - ./mongo-db:/usr/data/db
     # ports:
     #   - 27017:27017
-    command: mongod --smallfiles --logpath=/dev/null # --quiet
+    command: mongod --smallfiles
 
 volumes:
   redis-data:

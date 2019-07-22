@@ -1,5 +1,7 @@
-from flask import Flask, Response, request, jsonify, redirect, url_for, render_template,session, abort, flash,logging
-#from werkzeug.utils import secure_filename
+from flask import Flask, Response, request, has_request_context, jsonify, redirect, url_for, render_template,session, abort, flash,logging
+from flask.logging import default_handler
+from werkzeug.utils import secure_filename
+from flask_pymongo import PyMongo
 import json,os,base64
 import tempfile
 import numpy.core.multiarray
@@ -9,15 +11,22 @@ import base64
 from celery import Celery
 from image_processors import pdf_to_cv
 from image_processors import new_mask
-ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'pdf'])
+from helpers.file_helpers import allowed_file
 
+
+#ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'pdf']) # FOUND IN HELPERS allowed_file
+
+
+#Setup Logging
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
-app.config.update(
-    CELERY_BROKER_URL='redis://localhost:6379',
-    CELERY_RESULT_BACKEND='redis://localhost:6379'
-)
+app.config["MONGO_URI"] = "mongodb://localhost:27017/AadharMaskDB"
+app.config["CELERY_BROKER_URL"]='redis://localhost:6379'
+app.config["CELERY_RESULT_BACKEND"]='redis://localhost:6379'
+app.config['UPLOAD_FOLDER'] = "uploaded-files/"
+
+
 def make_celery(app):
     celery = Celery(
         app.import_name,
@@ -33,7 +42,10 @@ def make_celery(app):
 
     celery.Task = ContextTask
     return celery
+
+
 celery = make_celery(app)
+mongo = PyMongo(app)
 
 
 @celery.task(bind=True)
@@ -99,10 +111,10 @@ def longtask():
 #Sanity Check
 @app.route("/ping")
 def ping():
-    return "Pong"
+    return "pong"
 @app.route("/")
 def index():
-    return "Please Check URL Endpoint"
+    return "Nothing Here"
 
 
 
@@ -118,7 +130,7 @@ NEW MASKING SCRIPT
 
 
 
-@app.route('/aadhar', methods=['GET', 'POST'])
+@app.route('/aadhar_single', methods=['GET', 'POST'])
 def new_aadhar():
     if request.method == 'POST':
         # check if the post request has the file part
@@ -132,7 +144,7 @@ def new_aadhar():
             return jsonify({'error':'Empty File'})
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            print(filename)
+            app.logger.info('Got Uploaded File: %s ', filename)
             with tempfile.TemporaryDirectory() as tmpdir:
                 filepath = os.path.join(tmpdir, filename)
                 file.save(filepath)
@@ -157,8 +169,55 @@ def new_aadhar():
     <title>Test Masking Endpoint</title>
     <h1>Test Masking Endpoint</h1>
     <h3>Upload Any file</h3>
-    <form method=post action="/new_aadhar" enctype=multipart/form-data>
+    <form method=post action="/aadhar_single" enctype=multipart/form-data>
       <input type=file name=file accept="*">
+      <input type=submit value=Upload>
+    </form>
+    '''
+
+@app.route('/aadhar_multi', methods=['GET', 'POST'])
+def multi_aadhar():
+    if request.method == 'POST':
+        # check if the post request has the file part
+        uploaded_files = request.files.getlist("file")
+        filenames = []
+        print(uploaded_files)
+
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            for file in uploaded_files:
+                if file.filename == '':
+                    app.logger.error('Empty File Name')
+                    return jsonify({'error':'Empty File Name'})
+                if file and allowed_file(file.filename):
+                    filename = secure_filename(file.filename)
+                    app.logger.info('Got Uploaded File: %s ', filename)
+                    filepath = os.path.join(tmpdir, filename)
+                    file.save(filepath)
+                    if filepath.split(".")[-1]=="pdf":
+                        img = pdf_to_cv.read(filepath)
+                    else:
+                        img = imread(filepath)
+                    error, result = new_mask.mask_image(img)
+                    if error:
+                        return("Unable to mask")
+
+                    retval, buffer = imencode('.jpg', result)
+                    # jpg_as_text = base64.b64encode(buffer)
+                    # result = "data:image/jpg;base64,"+str(jpg_as_text, "utf-8")
+                    # return("<img src=\""+result+"\">")
+                else:
+                    app.logger.info('Invalid File Extension Uploaded: %s ', file.filename)
+                    return jsonify({'error':'Invalid File Uploaded '+file.filename})
+
+            
+    return '''
+    <!doctype html>
+    <title>Test Masking Endpoint</title>
+    <h1>Test Masking Endpoint</h1>
+    <h3>Upload Any file</h3>
+    <form method=post action="/aadhar_multi" enctype=multipart/form-data>
+      <input type=file name=file accept="*" multiple>
       <input type=submit value=Upload>
     </form>
     '''

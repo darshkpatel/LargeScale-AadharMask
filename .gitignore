@@ -9,4 +9,5 @@ venv/
 .vscode/
 .idea/
 *.log
+.ipynb_checkpoints
 .env
