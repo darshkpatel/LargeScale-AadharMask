@@ -21,6 +21,7 @@ services:
   celery:
     build: .
     command: celery -A app.celery worker -l info
+    user: nobody
     links:
         - "redis:redis_cache"
         - "mongodb:mongo"
