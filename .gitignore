@@ -11,3 +11,5 @@ venv/
 *.log
 .ipynb_checkpoints
 .env
+*.ipynb
+SampleImages
