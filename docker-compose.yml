@@ -5,7 +5,7 @@ services:
     # command: "python3 -u app.py"
     command: "gunicorn -w 3 -t 120 -b 0.0.0.0:5000 --reload --access-logfile - app:app"
     ports:
-      - "5002:5000"
+      - "5000"
     volumes:
       - ./src:/app
     depends_on:
@@ -52,6 +52,15 @@ services:
     # ports:
     #   - 27017:27017
     command: mongod --smallfiles
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+    ports:
+      - "5002:5002"
 
 volumes:
   redis-data:
