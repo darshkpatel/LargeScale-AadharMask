@@ -4,6 +4,7 @@ from werkzeug.utils import secure_filename
 from flask_pymongo import PyMongo
 import json,os,base64
 import tempfile
+from celery.signals import after_setup_logger
 import numpy.core.multiarray
 from cv2 import imread, imencode
 import time, random
@@ -24,7 +25,8 @@ app.config['SECRET_KEY'] = 'secret!'
 app.config["MONGO_URI"] = "mongodb://localhost:27017/AadharMaskDB"
 app.config["CELERY_BROKER_URL"]='redis://localhost:6379'
 app.config["CELERY_RESULT_BACKEND"]='redis://localhost:6379'
-app.config['UPLOAD_FOLDER'] = "uploaded-files/"
+tmpdir = tempfile.TemporaryDirectory() 
+
 
 
 def make_celery(app):
@@ -48,8 +50,8 @@ celery = make_celery(app)
 mongo = PyMongo(app)
 
 
-@celery.task(bind=True)
-def long_task(self):
+@celery.task(bind=True, time_limit=100)
+def long_task(self, arg1,arg2):
     """Background task that runs a long function with progress reports."""
     verb = ['Starting up', 'Booting', 'Repairing', 'Loading', 'Checking']
     adjective = ['master', 'radiant', 'silent', 'harmonic', 'fast']
@@ -57,13 +59,9 @@ def long_task(self):
     message = ''
     total = random.randint(10, 50)
     for i in range(total):
-        if not message or random.random() < 0.25:
-            message = '{0} {1} {2}...'.format(random.choice(verb),
-                                              random.choice(adjective),
-                                              random.choice(noun))
         self.update_state(state='PROGRESS',
                           meta={'current': i, 'total': total,
-                                'status': message})
+                                'status': arg1+arg2})
         time.sleep(1)
     return {'current': 100, 'total': 100, 'status': 'Task completed!',
             'result': 42}
@@ -72,8 +70,9 @@ def long_task(self):
 
 
 
-@app.route('/status/<task_id>')
-def taskstatus(task_id):
+
+@app.route('/status1/<task_id>')
+def taskstatus1(task_id):
     task = long_task.AsyncResult(task_id)
     if task.state == 'PENDING':
         # job did not start yet
@@ -102,10 +101,37 @@ def taskstatus(task_id):
         }
     return jsonify(response)
 
+@app.route('/status/<task_id>')
+def taskstatus(task_id):
+    task = handle_file.AsyncResult(task_id)
+    if task.state == 'PENDING':
+        # job did not start yet
+        response = {
+            'state': task.state,
+            'filename':'',
+            'task_status':''
+
+        }
+    elif task.state != 'FAILURE':
+        response = {
+            'state': task.state,
+            'filename': task.info.get('filename', ''),
+            'task_status': task.info.get('task_status', '')
+        }
+    else:
+        # something went wrong in the background job
+        response = {
+            'state': task.state,
+            'filename':'',
+            'task_status':'',
+            'status': str(task.info),  # this is the exception raised
+        }
+    return jsonify(response)
+
 
 @app.route('/test', methods=['GET'])
 def longtask():
-    task = long_task.apply_async()
+    task = long_task.apply_async("hello", " world")
     return redirect(url_for('taskstatus', task_id=task.id))
 
 #Sanity Check
@@ -175,40 +201,55 @@ def new_aadhar():
     </form>
     '''
 
+
+@celery.task(bind=True)
+def handle_file(self, file_name, file_path):
+    if file_name.split(".")[-1]=="pdf":
+        img = pdf_to_cv.read(file_path)
+    else:
+        img = imread(file_path)
+    self.update_state(state='PROGRESS', meta={'filename': file_name, 'task_status':"Masking Aadhar" })
+    error, result = new_mask.mask_image(img)
+    if error:
+        raise ValueError('Unable to Process Aadhar')
+
+    retval, buffer = imencode('.jpg', result)
+    try:
+        os.remove(file_path)
+        self.update_state(state='PROGRESS', meta={'filename': file_name, 'task_status':"Removed Temp File" })
+    except:
+        app.logger.error('Unable to delete: %s ', file_path)
+
+    self.update_state(state='PROGRESS', meta={'filename': file_name, 'task_status':"Done !" })
+
+    return {'filename': file_name, 'task_status':"Done !"}
+
+
 @app.route('/aadhar_multi', methods=['GET', 'POST'])
 def multi_aadhar():
     if request.method == 'POST':
         # check if the post request has the file part
         uploaded_files = request.files.getlist("file")
-        filenames = []
-        print(uploaded_files)
+        file_objs = []
+
+        for file in uploaded_files:
+            if file.filename == '':
+                return jsonify({'error':'Empty File'})
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                app.logger.info('Got Uploaded File: %s ', filename)
+
+                filepath = os.path.join(tmpdir.name, filename)
+                file.save(filepath)
+                file_objs.append(handle_file.apply_async(args=[filename, filepath]).id)
+            else:
+                return jsonify({'error':'Invalid or Corrupt File'})
+
+        return jsonify({"task_ids":file_objs})
+                
+                    
 
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            for file in uploaded_files:
-                if file.filename == '':
-                    app.logger.error('Empty File Name')
-                    return jsonify({'error':'Empty File Name'})
-                if file and allowed_file(file.filename):
-                    filename = secure_filename(file.filename)
-                    app.logger.info('Got Uploaded File: %s ', filename)
-                    filepath = os.path.join(tmpdir, filename)
-                    file.save(filepath)
-                    if filepath.split(".")[-1]=="pdf":
-                        img = pdf_to_cv.read(filepath)
-                    else:
-                        img = imread(filepath)
-                    error, result = new_mask.mask_image(img)
-                    if error:
-                        return("Unable to mask")
-
-                    retval, buffer = imencode('.jpg', result)
-                    # jpg_as_text = base64.b64encode(buffer)
-                    # result = "data:image/jpg;base64,"+str(jpg_as_text, "utf-8")
-                    # return("<img src=\""+result+"\">")
-                else:
-                    app.logger.info('Invalid File Extension Uploaded: %s ', file.filename)
-                    return jsonify({'error':'Invalid File Uploaded '+file.filename})
 
             
     return '''

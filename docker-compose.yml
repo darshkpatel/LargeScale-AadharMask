@@ -20,7 +20,7 @@ services:
 
   celery:
     build: .
-    command: celery -A app.celery worker -l info
+    command: celery -A app.celery worker -l info --concurrency=1
     user: nobody
     links:
         - "redis:redis_cache"
