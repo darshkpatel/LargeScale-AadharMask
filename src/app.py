@@ -1,4 +1,4 @@
-from flask import Flask, Response, request, has_request_context, jsonify, redirect, url_for, render_template,session, abort, flash,logging, render_template_string, send_from_directory
+from flask import Flask, Response, request, has_request_context, jsonify, redirect, url_for, render_template,session, abort, flash,logging, render_template_string, send_from_directory, url_for
 from flask.logging import default_handler
 from werkzeug.utils import secure_filename
 import json,os,base64
@@ -18,11 +18,12 @@ from flask_admin import Admin
 from flask_admin.form import rules
 import datetime
 import flask_admin as admin
-
+from models import *
 from flask_admin import expose
 import flask_login as login
 from wtforms import form, fields, validators
 from flask_admin.form import rules
+from flask_admin.menu import MenuLink
 from flask_admin.contrib.mongoengine import ModelView
 import random, string
 
@@ -44,7 +45,7 @@ app.config["MONGODB_SETTINGS"] = {
     'db':'AadharMaskDB',
     # 'username':None,
     # 'password':None,
-     'host':"mongodb://localhost",
+     'host':"mongodb://mongo",
     # 'port':None
 }
 app.config.update(    # Flask-User settings
@@ -52,6 +53,7 @@ app.config.update(    # Flask-User settings
     USER_ENABLE_EMAIL = False,      # Disable email authentication
     USER_ENABLE_USERNAME = True,    # Enable username authentication
     USER_REQUIRE_RETYPE_PASSWORD = False,    # Simplify register form)
+    USER_REGISTER_TEMPLATE                  = 'admin/index.html'
     )
 
 
@@ -79,10 +81,10 @@ def make_celery(app):
 
 celery = make_celery(app)
 db = MongoEngine(app)
-from models import *
 
 
 # Flask views
+@login_required
 @app.route('/')
 def index():
     return '<a href="/admin/">Click me to get to Admin!</a>'
@@ -94,6 +96,15 @@ admin = admin.Admin(app, 'Aadhar Masking Endpoint', index_view=MyHomeView())
 admin.add_view(UserView(User,name="User Details", category="User Management"))
 admin.add_view(FilesView(Files, name="File Info"))
 admin.add_view(ModelView(Tag, name = "Tags/Roles",category="User Management"))
+admin.add_link(MenuLink(name='Logout', url='/user/logout'))
+
+class CustomUserManager(UserManager):
+    def customize(self, app):
+        # Use the provided MongoDbAdapter
+        from flask_user.db_adapters import MongoDbAdapter
+        self.db_adapter = MongoDbAdapter(app, db)
+
+user_manager = CustomUserManager(app, db, User)
 
 
 @app.route('/status/<task_id>')
@@ -136,6 +147,22 @@ def ping():
 # @app.route("/")
 # def index():
 #     return "Nothing Here"
+
+@app.route('/members')
+@login_required    # User must be authenticated
+def member_page():
+    # String-based templates
+    return render_template_string("""
+        {% extends "flask_user_layout.html" %}
+        {% block content %}
+            <h2>Members page</h2>
+            <p><a href={{ url_for('user.register') }}>Register</a></p>
+            <p><a href={{ url_for('user.login') }}>Sign in</a></p>
+            <p><a href={{ url_for('home_page') }}>Home page</a> (accessible to anyone)</p>
+            <p><a href={{ url_for('member_page') }}>Member page</a> (login required)</p>
+            <p><a href={{ url_for('user.logout') }}>Sign out</a></p>
+        {% endblock %}
+        """)
 
 @app.route('/local-storage-aadhar/<path:path>')
 def send_files(path):

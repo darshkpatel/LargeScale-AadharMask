@@ -1,11 +1,13 @@
 from flask_admin.contrib.mongoengine import ModelView
 from flask_admin import BaseView, expose, AdminIndexView
+from flask_user import login_required, UserManager, UserMixin
+from flask_mongoengine import mongoengine as db
 import datetime
-from app import db
-class User(db.Document):
-    username = db.StringField(max_length=40, unique=True)
-    tags = db.ListField(db.ReferenceField('Tag'))
-    password = db.StringField(max_length=40)
+class User(db.Document, UserMixin):
+    active = db.BooleanField(default=True)
+    username = db.StringField(max_length=40, unique=True, required=True)
+    password = db.StringField(max_length=40, required=True)
+    tags = db.ListField(db.ReferenceField('Tag'), default=[])
 
     def __unicode__(self):
         return self.name
