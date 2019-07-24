@@ -1,4 +1,4 @@
-from flask import Flask, Response, request, has_request_context, jsonify, redirect, url_for, render_template,session, abort, flash,logging, render_template_string
+from flask import Flask, Response, request, has_request_context, jsonify, redirect, url_for, render_template,session, abort, flash,logging, render_template_string, send_from_directory
 from flask.logging import default_handler
 from werkzeug.utils import secure_filename
 import json,os,base64
@@ -133,9 +133,9 @@ def longtask():
 @app.route("/ping")
 def ping():
     return "pong"
-@app.route("/")
-def index():
-    return "Nothing Here"
+# @app.route("/")
+# def index():
+#     return "Nothing Here"
 
 @app.route('/local-storage-aadhar/<path:path>')
 def send_files(path):

@@ -33,3 +33,4 @@ Werkzeug==0.15.4
 redis
 flask-user
 flask-mongoengine
+flask-admin
