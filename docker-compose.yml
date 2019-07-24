@@ -10,7 +10,7 @@ services:
       - ./src:/app
       - run_vol:/var/run
       - cache_vol:/var/cache
-      - tmp_vol:/tempfiles
+      - tmp_vol:/tmp
     depends_on:
         - redis
         - mongodb
@@ -24,7 +24,6 @@ services:
   celery:
     build: .
     command: celery -A app.celery worker -l info --concurrency=1
-    user: nobody
     links:
         - "redis:redis_cache"
         - "mongodb:mongo"
@@ -32,7 +31,7 @@ services:
       - ./src:/app
       - run_vol:/var/run
       - cache_vol:/var/cache
-      - tmp_vol:/tempfiles
+      - tmp_vol:/tmp
     depends_on:
         - redis
         - mongodb
