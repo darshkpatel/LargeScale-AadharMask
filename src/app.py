@@ -133,11 +133,13 @@ def longtask():
 @app.route("/ping")
 def ping():
     return "pong"
-# @app.route("/")
-# def index():
-#     return "Nothing Here"
+@app.route("/")
+def index():
+    return "Nothing Here"
 
-
+@app.route('/local-storage-aadhar/<path:path>')
+def send_files(path):
+    return send_from_directory('local-storage-aadhar', path.split('/')[-1])
 # URL Routes
 
 ### MASK ALL TEXT
