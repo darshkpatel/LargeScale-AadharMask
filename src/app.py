@@ -19,13 +19,14 @@ from flask_admin.form import rules
 import datetime
 import flask_admin as admin
 from models import *
-from flask_admin import expose
+from flask_admin import expose,helpers
 import flask_login as login
 from wtforms import form, fields, validators
 from flask_admin.form import rules
 from flask_admin.menu import MenuLink
 from flask_admin.contrib.mongoengine import ModelView
 import random, string
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 
@@ -45,16 +46,10 @@ app.config["MONGODB_SETTINGS"] = {
     'db':'AadharMaskDB',
     # 'username':None,
     # 'password':None,
-     'host':"mongodb://mongo",
+     'host':"mongodb://localhost",
     # 'port':None
 }
-app.config.update(    # Flask-User settings
-    USER_APP_NAME = "Aadhar Masking",      # Shown in and email templates and page footers
-    USER_ENABLE_EMAIL = False,      # Disable email authentication
-    USER_ENABLE_USERNAME = True,    # Enable username authentication
-    USER_REQUIRE_RETYPE_PASSWORD = False,    # Simplify register form)
-    USER_REGISTER_TEMPLATE                  = 'admin/index.html'
-    )
+
 
 
 
@@ -82,29 +77,112 @@ def make_celery(app):
 celery = make_celery(app)
 db = MongoEngine(app)
 
+# Define login and registration forms (for flask-login)
+class LoginForm(form.Form):
+    login = fields.TextField(validators=[validators.required()])
+    password = fields.PasswordField(validators=[validators.required()])
+
+    def validate_login(self, field):
+        user = self.get_user()
+
+        if user is None:
+            raise validators.ValidationError('Invalid user')
+
+        if user.password != self.password.data:
+            raise validators.ValidationError('Invalid password')
+
+    def get_user(self):
+        return User.objects(username=self.login.data).first()
+class RegistrationForm(form.Form):
+    username = fields.TextField(validators=[validators.required()])
+    password = fields.PasswordField(validators=[validators.required()])
+
+    def validate_login(self, field):
+        if User.objects(username=self.username.data):
+            raise validators.ValidationError('Duplicate username')
+
+
+
+class UserView(ModelView):
+    def is_accessible(self):
+        return login.current_user.is_authenticated()
+    column_filters = ['username']
+
+    column_searchable_list = ('username', 'password')
+
+    form_ajax_refs = {
+        'tags': {
+            'fields': ('name',)
+        }
+    }
+
+class FilesView(ModelView):
+    def is_accessible(self):
+        return login.current_user.is_authenticated
+    can_create = False
+    can_export = True
+
+class MyHomeView(AdminIndexView):
+    def is_accessible(self):
+        return login.current_user.is_authenticated
+    @expose('/')
+    def index(self):
+        labels = ['JAN', 'FEB', 'MAR', 'APR','MAY', 'JUN', 'JUL', 'AUG','SEP', 'OCT', 'NOV', 'DEC']
+        values = [967.67, 1190.89, 1079.75, 1349.19,2328.91, 2504.28, 2873.83, 4764.87,4349.29, 6458.30, 9907, 16297]
+        return self.render('admin/index.html', max=max(values), labels = labels , values = values )
+
+
+def init_login():
+    login_manager = login.LoginManager()
+    login_manager.setup_app(app)
+
+    # Create user loader function
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.objects(username=user_id).first()
+
+@app.route('/register/', methods=('GET', 'POST'))
+def register_view():
+    form = RegistrationForm(request.form)
+    if request.method == 'POST' and form.validate():
+        user = User()
+
+        form.populate_obj(user)
+        user.save()
+
+        login.login_user(user)
+        return redirect(url_for('index'))
+
+    return render_template('form.html', form=form)
+@app.route('/logout/')
+def logout_view():
+    login.logout_user()
+    return redirect(url_for('index'))
+@app.route('/login/', methods=('GET', 'POST'))
+def login_view():
+    form = LoginForm(request.form)
+    if request.method == 'POST' and form.validate():
+        user = form.get_user()
+        login.login_user(user)
+        return redirect(url_for('index'))
+
+    return render_template('form.html', form=form)
+
 
 # Flask views
-@login_required
 @app.route('/')
 def index():
-    return '<a href="/admin/">Click me to get to Admin!</a>'
+    return render_template('index.html', user=login.current_user)
 
 admin = admin.Admin(app, 'Aadhar Masking Endpoint', index_view=MyHomeView())
 
+init_login()
 
 # Add views
 admin.add_view(UserView(User,name="User Details", category="User Management"))
 admin.add_view(FilesView(Files, name="File Info"))
 admin.add_view(ModelView(Tag, name = "Tags/Roles",category="User Management"))
-admin.add_link(MenuLink(name='Logout', url='/user/logout'))
-
-class CustomUserManager(UserManager):
-    def customize(self, app):
-        # Use the provided MongoDbAdapter
-        from flask_user.db_adapters import MongoDbAdapter
-        self.db_adapter = MongoDbAdapter(app, db)
-
-user_manager = CustomUserManager(app, db, User)
+admin.add_link(MenuLink(name='Logout', url='/logout'))
 
 
 @app.route('/status/<task_id>')
@@ -147,22 +225,6 @@ def ping():
 # @app.route("/")
 # def index():
 #     return "Nothing Here"
-
-@app.route('/members')
-@login_required    # User must be authenticated
-def member_page():
-    # String-based templates
-    return render_template_string("""
-        {% extends "flask_user_layout.html" %}
-        {% block content %}
-            <h2>Members page</h2>
-            <p><a href={{ url_for('user.register') }}>Register</a></p>
-            <p><a href={{ url_for('user.login') }}>Sign in</a></p>
-            <p><a href={{ url_for('home_page') }}>Home page</a> (accessible to anyone)</p>
-            <p><a href={{ url_for('member_page') }}>Member page</a> (login required)</p>
-            <p><a href={{ url_for('user.logout') }}>Sign out</a></p>
-        {% endblock %}
-        """)
 
 @app.route('/local-storage-aadhar/<path:path>')
 def send_files(path):
