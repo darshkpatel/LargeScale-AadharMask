@@ -32,5 +32,6 @@ vine==1.3.0
 Werkzeug==0.15.4
 redis
 flask-login
+flask-user
 flask-mongoengine
 flask-admin
