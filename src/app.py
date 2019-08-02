@@ -48,7 +48,7 @@ app.config["MONGODB_SETTINGS"] = {
     'db':'AadharMaskDB',
     # 'username':None,
     # 'password':None,
-     'host':"mongodb://localhost/AadharMaskDB",
+     'host':"mongodb://mongodb/AadharMaskDB",
     # 'port':None
 }
 
@@ -143,7 +143,7 @@ def test_view():
 
 
 
-@app.route('/login', methods=['POST','GET'])
+@app.route('/login/', methods=['POST','GET'])
 def login_post():
     if request.method=='POST':
         username = request.form.get('username')
