@@ -1,6 +1,6 @@
 from flask_admin.contrib.mongoengine import ModelView
 from flask_admin import BaseView, expose, AdminIndexView
-from flask_user import login_required, UserManager, UserMixin
+from flask_login import UserMixin
 from flask_mongoengine import mongoengine as db
 import datetime
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -42,7 +42,7 @@ class Files(db.Document):
     location = db.StringField(required=True, unique=True)
     orig_name = db.StringField(required=True)
     saved_at = db.DateTimeField(default=datetime.datetime.now)
-    uploader = db.ListField(db.ReferenceField('User'))
+    uploader = db.StringField()
     remote_storage = db.BooleanField(default = False)
 # Customized admin views
 

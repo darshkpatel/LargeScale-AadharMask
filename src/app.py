@@ -54,7 +54,6 @@ app.config["MONGODB_SETTINGS"] = {
 
 
 
-
 tmpdir = tempfile.TemporaryDirectory() 
 
 
@@ -114,26 +113,14 @@ class MyHomeView(AdminIndexView):
         return self.render('admin/index.html', max=max(values), labels = labels , values = values )
 
 
-def init_login():
-    login_manager = login.LoginManager()
-    login_manager.setup_app(app)
-    login_manager.login_view = 'login_post'
-
-    # @login_manager.user_loader
-    # def load_user(user_id):
-    #     # since the user_id is just the primary key of our user table, use it in the query for the user
-    #     return User.query.get(int(username))
-    # Create user loader function
-    @login_manager.user_loader
-    def load_user(user_id):
-        return User.objects(username=user_id).first()
-
-
 @app.route('/logout/')
 def logout_view():
     login.logout_user()
     return redirect(url_for('index'))
-@app.route('/t')
+
+
+@app.route('/testv')
+@login_required
 def test_view():
     first_days,last_days = get_arrays(datetime.datetime.now().year)
     final = []
@@ -143,7 +130,7 @@ def test_view():
 
 
 
-@app.route('/login/', methods=['POST','GET'])
+@app.route('/login', methods=['POST','GET'])
 def login_post():
     if request.method=='POST':
         username = request.form.get('username')
@@ -160,7 +147,8 @@ def login_post():
 
         # if the above check passes, then we know the user has the right credentials
         login_user(user, remember=remember)
-        return redirect(url_for('index'))
+
+        return redirect(url_for(request.args.get('next', 'index')))
     else:
         return render_template('login.html')
 
@@ -174,7 +162,19 @@ def index():
 
 admin = admin.Admin(app, 'Aadhar Masking Endpoint', index_view=MyHomeView())
 
-init_login()
+login_manager = login.LoginManager()
+login_manager.setup_app(app)
+login_manager.init_app(app)
+login_manager.login_view = 'login_post'
+
+# @login_manager.user_loader
+# def load_user(user_id):
+#     # since the user_id is just the primary key of our user table, use it in the query for the user
+#     return User.query.get(int(username))
+# Create user loader function
+@login_manager.user_loader
+def load_user(user_id):
+    return User.objects(username=user_id).first()
 
 # Add views
 admin.add_view(UserView(User,name="User Details", category="User Management"))
@@ -184,6 +184,7 @@ admin.add_link(MenuLink(name='Logout', url='/logout'))
 
 
 @app.route('/status/<task_id>')
+@login_required
 def taskstatus(task_id):
     task = handle_file.AsyncResult(task_id)
     if task.state == 'PENDING':
@@ -211,11 +212,6 @@ def taskstatus(task_id):
     return jsonify(response)
 
 
-@app.route('/test', methods=['GET'])
-def longtask():
-    task = long_task.apply_async("hello", " world")
-    return redirect(url_for('taskstatus', task_id=task.id))
-
 #Sanity Check
 @app.route("/ping")
 def ping():
@@ -225,8 +221,12 @@ def ping():
 #     return "Nothing Here"
 
 @app.route('/local-storage-aadhar/<path:path>')
+@login_required
 def send_files(path):
-    return send_from_directory('local-storage-aadhar', path.split('/')[-1])
+    if login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin":
+        return send_from_directory('local-storage-aadhar', path.split('/')[-1])
+    else:
+        return abort(403)
 # URL Routes
 
 ### MASK ALL TEXT
@@ -240,6 +240,7 @@ NEW MASKING SCRIPT
 
 
 @app.route('/aadhar_single', methods=['GET', 'POST'])
+@login_required
 def new_aadhar():
     if request.method == 'POST':
         # check if the post request has the file part
@@ -330,6 +331,7 @@ def handle_file(self, file_name, file_path, store_local=True, store_remote=False
 
 
 @app.route('/aadhar_multi', methods=['GET', 'POST'])
+@login_required
 def multi_aadhar():
     if request.method == 'POST':
         # check if the post request has the file part
