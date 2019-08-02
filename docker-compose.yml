@@ -68,7 +68,6 @@ services:
             - ./db-seed:/seed-db
     # ports:
     #   - 27017:27017
-    command: mongod --smallfiles
 
   nginx:
     image: nginx:latest

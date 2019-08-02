@@ -48,7 +48,7 @@ app.config["MONGODB_SETTINGS"] = {
     'db':'AadharMaskDB',
     # 'username':None,
     # 'password':None,
-     'host':"mongodb://localhost/AadharMaskDB",
+     'host':"mongodb://mongodb/AadharMaskDB",
     # 'port':None
 }
 
