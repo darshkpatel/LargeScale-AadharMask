@@ -81,8 +81,8 @@ db = MongoEngine(app)
 
 
 class UserView(ModelView):
-    # def is_accessible(self):
-    #     return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
+    def is_accessible(self):
+        return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
     column_filters = ['username']
 
     column_searchable_list = ('username', 'password')
@@ -95,14 +95,14 @@ class UserView(ModelView):
     }
 
 class FilesView(ModelView):
-    # def is_accessible(self):
-    #     return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
+    def is_accessible(self):
+        return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
     can_create = False
     can_export = True
 
 class MyHomeView(AdminIndexView):
-    # def is_accessible(self):
-    #     return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
+    def is_accessible(self):
+        return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
     @expose('/')
     def index(self):
         labels = ['JAN', 'FEB', 'MAR', 'APR','MAY', 'JUN', 'JUL', 'AUG','SEP', 'OCT', 'NOV', 'DEC']

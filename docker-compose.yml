@@ -63,7 +63,7 @@ services:
     links:
             - "mongodb:mongo"
     depends_on:
-      - mongo
+      - mongodb
     volumes:
       - ./db-seed:/seed-data
     # ports:
