@@ -1,1 +1,1 @@
-{"options":{},"indexes":[{"v":2,"key":{"_id":1},"name":"_id_","ns":"AadharMaskDB.user"},{"v":2,"unique":true,"key":{"username":1},"name":"username_1","ns":"AadharMaskDB.user","background":false,"sparse":false}],"uuid":"0a98ab6a95d442af8d7e58683d4a2964"}
+{"options":{},"indexes":[{"v":2,"key":{"_id":1},"name":"_id_","ns":"AadharMaskDB.user"},{"v":2,"unique":true,"key":{"username":1},"name":"username_1","ns":"AadharMaskDB.user","background":false,"sparse":false}],"uuid":"37e5ca35a16a40c7ad47f4ede6f057c6"}
