@@ -12,8 +12,10 @@ from celery import Celery
 from image_processors import pdf_to_cv
 from image_processors import new_mask
 from helpers.file_helpers import allowed_file
-from flask_user import login_required, UserManager, UserMixin
+from helpers.date_helpers import *
+from flask_login import login_required, LoginManager, UserMixin, login_user
 from flask_mongoengine import MongoEngine
+import datetime
 from flask_admin import Admin
 from flask_admin.form import rules
 import datetime
@@ -46,7 +48,7 @@ app.config["MONGODB_SETTINGS"] = {
     'db':'AadharMaskDB',
     # 'username':None,
     # 'password':None,
-     'host':"mongodb://localhost",
+     'host':"mongodb://localhost/AadharMaskDB",
     # 'port':None
 }
 
@@ -77,39 +79,15 @@ def make_celery(app):
 celery = make_celery(app)
 db = MongoEngine(app)
 
-# Define login and registration forms (for flask-login)
-class LoginForm(form.Form):
-    login = fields.TextField(validators=[validators.required()])
-    password = fields.PasswordField(validators=[validators.required()])
-
-    def validate_login(self, field):
-        user = self.get_user()
-
-        if user is None:
-            raise validators.ValidationError('Invalid user')
-
-        if user.password != self.password.data:
-            raise validators.ValidationError('Invalid password')
-
-    def get_user(self):
-        return User.objects(username=self.login.data).first()
-class RegistrationForm(form.Form):
-    username = fields.TextField(validators=[validators.required()])
-    password = fields.PasswordField(validators=[validators.required()])
-
-    def validate_login(self, field):
-        if User.objects(username=self.username.data):
-            raise validators.ValidationError('Duplicate username')
-
-
 
 class UserView(ModelView):
-    def is_accessible(self):
-        return login.current_user.is_authenticated()
+    # def is_accessible(self):
+    #     return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
     column_filters = ['username']
 
     column_searchable_list = ('username', 'password')
-
+    def on_model_change(self, form, model, is_created):
+        model.password = generate_password_hash(model.password)
     form_ajax_refs = {
         'tags': {
             'fields': ('name',)
@@ -117,62 +95,82 @@ class UserView(ModelView):
     }
 
 class FilesView(ModelView):
-    def is_accessible(self):
-        return login.current_user.is_authenticated
+    # def is_accessible(self):
+    #     return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
     can_create = False
     can_export = True
 
 class MyHomeView(AdminIndexView):
-    def is_accessible(self):
-        return login.current_user.is_authenticated
+    # def is_accessible(self):
+    #     return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
     @expose('/')
     def index(self):
         labels = ['JAN', 'FEB', 'MAR', 'APR','MAY', 'JUN', 'JUL', 'AUG','SEP', 'OCT', 'NOV', 'DEC']
-        values = [967.67, 1190.89, 1079.75, 1349.19,2328.91, 2504.28, 2873.83, 4764.87,4349.29, 6458.30, 9907, 16297]
+        first_days,last_days = get_arrays(datetime.datetime.now().year)
+        values = []
+        for month in range(0,12):
+            values.append(Files.objects(saved_at__gte=first_days[month],saved_at__lte=last_days[month]).count())
+        # values = [967.67, 1190.89, 1079.75, 1349.19,2328.91, 2504.28, 2873.83, 4764.87,4349.29, 6458.30, 9907, 16297]
         return self.render('admin/index.html', max=max(values), labels = labels , values = values )
 
 
 def init_login():
     login_manager = login.LoginManager()
     login_manager.setup_app(app)
+    login_manager.login_view = 'login_post'
 
+    # @login_manager.user_loader
+    # def load_user(user_id):
+    #     # since the user_id is just the primary key of our user table, use it in the query for the user
+    #     return User.query.get(int(username))
     # Create user loader function
     @login_manager.user_loader
     def load_user(user_id):
         return User.objects(username=user_id).first()
 
-@app.route('/register/', methods=('GET', 'POST'))
-def register_view():
-    form = RegistrationForm(request.form)
-    if request.method == 'POST' and form.validate():
-        user = User()
 
-        form.populate_obj(user)
-        user.save()
-
-        login.login_user(user)
-        return redirect(url_for('index'))
-
-    return render_template('form.html', form=form)
 @app.route('/logout/')
 def logout_view():
     login.logout_user()
     return redirect(url_for('index'))
-@app.route('/login/', methods=('GET', 'POST'))
-def login_view():
-    form = LoginForm(request.form)
-    if request.method == 'POST' and form.validate():
-        user = form.get_user()
-        login.login_user(user)
+@app.route('/t')
+def test_view():
+    first_days,last_days = get_arrays(datetime.datetime.now().year)
+    final = []
+    for month in range(0,12):
+        final.append(Files.objects(saved_at__gte=first_days[month],saved_at__lte=last_days[month]).count())
+    return jsonify(final)
+
+
+
+@app.route('/login', methods=['POST','GET'])
+def login_post():
+    if request.method=='POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        remember = True if request.form.get('remember') else False
+
+        user = User.objects(username=username).first()
+
+        # check if user actually exists
+        # take the user supplied password, hash it, and compare it to the hashed password in database
+        if not user or not check_password_hash(user.password, password): 
+            flash('Please check your login details and try again.')
+            return redirect(url_for('login_post')) # if user doesn't exist or password is wrong, reload the page
+
+        # if the above check passes, then we know the user has the right credentials
+        login_user(user, remember=remember)
         return redirect(url_for('index'))
-
-    return render_template('form.html', form=form)
-
+    else:
+        return render_template('login.html')
 
 # Flask views
 @app.route('/')
 def index():
-    return render_template('index.html', user=login.current_user)
+    if login.current_user.is_authenticated:
+        return render_template('index.html', user=login.current_user)
+    else:
+        return redirect(url_for('login_post'))
 
 admin = admin.Admin(app, 'Aadhar Masking Endpoint', index_view=MyHomeView())
 

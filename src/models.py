@@ -3,13 +3,15 @@ from flask_admin import BaseView, expose, AdminIndexView
 from flask_user import login_required, UserManager, UserMixin
 from flask_mongoengine import mongoengine as db
 import datetime
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 class User(db.Document, UserMixin):
     active = db.BooleanField(default=True)
     username = db.StringField(max_length=40, unique=True, required=True)
-    password = db.StringField(max_length=40, required=True)
+    password = db.StringField(required=True)
     tags = db.ListField(db.ReferenceField('Tag'), default=[])
+
+
 
     def __unicode__(self):
         return self.username

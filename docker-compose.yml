@@ -57,6 +57,18 @@ services:
     # ports:
     #   - 27017:27017
     command: mongod --smallfiles
+  mongoseed:
+    build: ./db-seed
+    container_name: "mongoseed"
+    links:
+            - "mongodb:mongo"
+    depends_on:
+      - mongo
+    volumes:
+      - ./db-seed:/seed-data
+    # ports:
+    #   - 27017:27017
+    command: mongod --smallfiles
 
   nginx:
     image: nginx:latest
