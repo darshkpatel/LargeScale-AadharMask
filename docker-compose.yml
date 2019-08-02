@@ -65,7 +65,7 @@ services:
     depends_on:
       - mongodb
     volumes:
-      - ./db-seed:/seed-data
+            - ./db-seed:/seed-db
     # ports:
     #   - 27017:27017
     command: mongod --smallfiles
