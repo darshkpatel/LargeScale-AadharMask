@@ -14,6 +14,7 @@ services:
     depends_on:
         - redis
         - mongodb
+        - mongoseed
         - celery
     environment:
       PYTHONUNBUFFERED: 'true'
@@ -57,6 +58,7 @@ services:
     # ports:
     #   - 27017:27017
     command: mongod --smallfiles
+
   mongoseed:
     build: ./db-seed
     container_name: "mongoseed"
@@ -66,9 +68,8 @@ services:
       - mongodb
     volumes:
             - ./db-seed:/seed-db
-    # ports:
-    #   - 27017:27017
 
+    command: mongorestore --uri "mongodb://mongodb" -d "AadharMaskDB" /seed-db/AadharMaskDB
   nginx:
     image: nginx:latest
     volumes:
