@@ -54,6 +54,8 @@ app.config["MONGODB_SETTINGS"] = {
 
 
 
+
+
 tmpdir = tempfile.TemporaryDirectory() 
 
 
@@ -81,7 +83,10 @@ db = MongoEngine(app)
 
 class UserView(ModelView):
     def is_accessible(self):
-        return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
+        # print(Tag.objects.filter(name='Administrator'))
+        # print(User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()))
+        is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+        return login.current_user.is_authenticated and is_admin
     column_filters = ['username']
 
     column_searchable_list = ('username', 'password')
@@ -95,22 +100,54 @@ class UserView(ModelView):
 
 class FilesView(ModelView):
     def is_accessible(self):
-        return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
+        # print(Tag.objects.filter(name='Administrator'))
+        # print(User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()))
+        is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+        return login.current_user.is_authenticated and is_admin
     can_create = False
     can_export = True
 
 class MyHomeView(AdminIndexView):
     def is_accessible(self):
-        return login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin"
+        # print(Tag.objects.filter(name='Administrator'))
+        # print(User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()))
+        is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+        return login.current_user.is_authenticated and is_admin
     @expose('/')
     def index(self):
         labels = ['JAN', 'FEB', 'MAR', 'APR','MAY', 'JUN', 'JUL', 'AUG','SEP', 'OCT', 'NOV', 'DEC']
         first_days,last_days = get_arrays(datetime.datetime.now().year)
-        values = []
+        values = []      
         for month in range(0,12):
             values.append(Files.objects(saved_at__gte=first_days[month],saved_at__lte=last_days[month]).count())
         # values = [967.67, 1190.89, 1079.75, 1349.19,2328.91, 2504.28, 2873.83, 4764.87,4349.29, 6458.30, 9907, 16297]
         return self.render('admin/index.html', max=max(values), labels = labels , values = values )
+
+
+def init_login():
+    login_manager = login.LoginManager()
+    login_manager.setup_app(app)
+    login_manager.login_view = 'login_post'
+
+    # @login_manager.user_loader
+    # def load_user(user_id):
+    #     # since the user_id is just the primary key of our user table, use it in the query for the user
+    #     return User.query.get(int(username))
+    # Create user loader function
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.objects(username=user_id).first()
+
+admin = admin.Admin(app, 'Aadhar Masking Endpoint', index_view=MyHomeView())
+
+init_login()
+
+# Add views
+admin.add_view(UserView(User,name="User Details", category="User Management"))
+admin.add_view(FilesView(Files, name="File Info"))
+admin.add_view(ModelView(Tag, name = "Tags/Roles",category="User Management"))
+admin.add_link(MenuLink(name='Logout', url='/logout'))
+
 
 
 @app.route('/logout/')
@@ -156,33 +193,14 @@ def login_post():
 @app.route('/')
 def index():
     if login.current_user.is_authenticated:
+        
         return render_template('index.html', user=login.current_user)
     else:
         return redirect(url_for('login_post'))
 
-admin = admin.Admin(app, 'Aadhar Masking Endpoint', index_view=MyHomeView())
-
-login_manager = login.LoginManager()
-login_manager.setup_app(app)
-login_manager.init_app(app)
-login_manager.login_view = 'login_post'
-
-# @login_manager.user_loader
-# def load_user(user_id):
-#     # since the user_id is just the primary key of our user table, use it in the query for the user
-#     return User.query.get(int(username))
-# Create user loader function
-@login_manager.user_loader
-def load_user(user_id):
-    return User.objects(username=user_id).first()
-
-# Add views
-admin.add_view(UserView(User,name="User Details", category="User Management"))
-admin.add_view(FilesView(Files, name="File Info"))
-admin.add_view(ModelView(Tag, name = "Tags/Roles",category="User Management"))
-admin.add_link(MenuLink(name='Logout', url='/logout'))
 
 
+#Unauthenticated for now
 @app.route('/status/<task_id>')
 @login_required
 def taskstatus(task_id):
@@ -221,7 +239,7 @@ def ping():
 #     return "Nothing Here"
 
 @app.route('/local-storage-aadhar/<path:path>')
-@login_required
+@login.login_required
 def send_files(path):
     if login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin":
         return send_from_directory('local-storage-aadhar', path.split('/')[-1])
@@ -287,7 +305,7 @@ def new_aadhar():
 
 
 @celery.task(bind=True)
-def handle_file(self, file_name, file_path, store_local=True, store_remote=False):
+def handle_file(self, file_name, file_path, uploader, store_local=True, store_remote=False):
     local_path = ''
 
     if file_name.split(".")[-1]=="pdf":
@@ -312,12 +330,22 @@ def handle_file(self, file_name, file_path, store_local=True, store_remote=False
         local_path = os.path.join(app.config['LOCAL_STORAGE'], random_name)
         try:
             imwrite(local_path,result)
-            file_metadata = Files(location=local_path, orig_name=file_name)
-            file_metadata.save()
             print("Saved ! ")
-        except:
-            print("Error Saving File on Disk Or DB")
+        except Exception as e:
+            print("Error Saving File on Disk")
+            app.logger.error(e)
             app.logger.error('Unable to Save Processed file: %s at %s ', file_path, os.path.join(app.config['LOCAL_STORAGE'], random_name))
+        try:
+            # print(str(login.current_user.username))
+            user_uploader = User.objects.filter(username = uploader)
+            # print(uploader.first().to_json())
+            print(uploader)
+            file_metadata = Files(location=local_path, orig_name=file_name, uploader=user_uploader)
+            file_metadata.save()
+        except Exception as e:
+            print(str(e))
+            print("Error Saving File Details to DB, deleting file ")
+            os.remove(local_path)
 
     try:
         os.remove(file_path)
@@ -337,6 +365,7 @@ def multi_aadhar():
         # check if the post request has the file part
         uploaded_files = request.files.getlist("file")
         file_objs = []
+        print("Uploader: ", str(login.current_user.username))
 
         for file in uploaded_files:
             if file.filename == '':
@@ -347,8 +376,9 @@ def multi_aadhar():
                 app.logger.info('Got Uploaded File: %s ', filename)
 
                 filepath = os.path.join(tmpdir.name, filename)
+                uploader =  str(login.current_user.username)
                 file.save(filepath)
-                file_objs.append({"task_id":handle_file.apply_async(args=[filename, filepath]).id, "filename":filename})
+                file_objs.append({"task_id":handle_file.apply_async(args=[filename, filepath, uploader]).id, "filename":filename})
             else:
                 continue
                 # return jsonify({'error':'Invalid or Corrupt File'})
@@ -373,5 +403,6 @@ def multi_aadhar():
 
 
 if __name__ == "__main__":
+
 
     app.run(host='0.0.0.0', port=5000, debug=True)

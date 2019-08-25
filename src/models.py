@@ -27,7 +27,13 @@ class User(db.Document, UserMixin):
 
     def get_id(self):
         return self.username
-        
+
+    @staticmethod
+    def show_tag(self):
+        names = []
+        for tag in self.tags:
+            names.append(tag.name)
+        return names
     @staticmethod
     def validate_login(password_hash, password):
         return check_password_hash(password_hash, password)
@@ -44,6 +50,10 @@ class Files(db.Document):
     saved_at = db.DateTimeField(default=datetime.datetime.now)
     uploader = db.StringField()
     remote_storage = db.BooleanField(default = False)
+class Settings(db.Document):
+    remote_storage = db.BooleanField(default = False, unique=True)
+    crop_images = db.BooleanField(default = True, unique=True)
+
 # Customized admin views
 
 

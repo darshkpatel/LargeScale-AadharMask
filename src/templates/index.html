@@ -2,14 +2,74 @@
 <html>
 
 <head>
+        <script
+        src="https://code.jquery.com/jquery-3.4.1.min.js"
+        integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+        crossorigin="anonymous"></script>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Flask Auth Example</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.2/css/bulma.min.css" />
+    <style>
+        form{
+
+  margin-top: 20px;
+  width: 500px;
+  height: 200px;
+  border: 4px dashed #fff;
+}
+form p{
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  line-height: 170px;
+  color: #ffffff;
+  font-family: Arial;
+}
+form input{
+    position: absolute;
+    /* margin: 0; */
+    padding: 0;
+    width: 50%;
+    height: 73%;
+    outline: none;
+    opacity: 0;
+    margin-left: -25%;
+}
+form button{
+  margin: 0;
+  color: #fff;
+  background: #16a085;
+  border: none;
+  width: 508px;
+  height: 35px;
+  margin-top: 10px;
+  margin-left: -4px;
+  border-radius: 4px;
+  border-bottom: 4px solid #117A60;
+  transition: all .2s ease;
+  outline: none;
+}
+form button:hover{
+  background: #149174;
+	color: #0C5645;
+}
+form button:active{
+  border:0;
+}
+
+    </style>
 </head>
 
 <body>
+    <script>
+    $(document).ready(function(){
+  $('form input').change(function () {
+    $('form p').text(this.files.length + " file(s) selected");
+  });
+});
+    </script>
     <section class="hero is-primary is-fullheight">
 
         <div class="hero-head">
@@ -60,11 +120,16 @@
                 </h6>
                 {% endif %}
 
-
-
-
+                    <div class='columns is-mobile is-centered'>
+    <form method=post action="/aadhar_multi" enctype=multipart/form-data>
+        <input type=file name=file accept="image/jpeg,image/jpg,image/png,application/pdf" multiple>
+    <p>Drag your files here or click in this area.</p>
+    <button type="submit">Upload</button>
+  </form>
+          </div>
 </div>
-</div>
+
+
 </section>
 </body>
 
