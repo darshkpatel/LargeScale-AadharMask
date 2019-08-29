@@ -1,5 +1,5 @@
 from flask import Flask, Response, request, has_request_context, jsonify, redirect, url_for, render_template,session, abort, flash,logging, render_template_string, send_from_directory, url_for
-from flask.logging import default_handler
+# from flask.logging import default_handler
 from werkzeug.utils import secure_filename
 import json,os,base64
 import tempfile
@@ -258,7 +258,7 @@ NEW MASKING SCRIPT
 
 
 @app.route('/aadhar_single', methods=['GET', 'POST'])
-@login_required
+# @login_required
 def new_aadhar():
     if request.method == 'POST':
         # check if the post request has the file part
@@ -280,8 +280,13 @@ def new_aadhar():
                     img = pdf_to_cv.read(filepath)
                 else:
                     img = imread(filepath)
+                isErrorOccured = False
                 error, result = new_mask.mask_image(img)
-                if error:
+                if error and not isErrorOccured:
+                    print("masking without crop")
+                    error, result = new_mask.mask_image(img,crop=False)
+                    isErrorOccured = True
+                elif error and isErrorOccured:
                     return("Unable to mask")
 
                 retval, buffer = imencode('.jpg', result)
