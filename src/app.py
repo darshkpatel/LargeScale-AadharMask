@@ -258,7 +258,7 @@ NEW MASKING SCRIPT
 
 
 @app.route('/aadhar_single', methods=['GET', 'POST'])
-# @login_required
+@login_required
 def new_aadhar():
     if request.method == 'POST':
         # check if the post request has the file part
