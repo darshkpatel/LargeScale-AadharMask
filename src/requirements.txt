@@ -35,3 +35,4 @@ flask-login
 flask-user
 flask-mongoengine
 flask-admin
+boto3==1.6.6
