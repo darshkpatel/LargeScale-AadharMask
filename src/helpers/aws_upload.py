@@ -37,7 +37,7 @@ def upload_to_aws(local_file, s3_file, bucket=S3_BUCKET, acl="authenticated-read
         return False
 
 
-def create_presigned_url(bucket_name, object_name, expiration=3600):
+def create_presigned_url( object_name, bucket_name=S3_BUCKET, expiration=3600):
     """Generate a presigned URL to share an S3 object
 
     :param bucket_name: string

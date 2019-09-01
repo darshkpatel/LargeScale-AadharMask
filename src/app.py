@@ -107,7 +107,8 @@ class FilesView(ModelView):
         return login.current_user.is_authenticated and is_admin
     can_create = False
     can_export = True
-
+    can_delete = True
+    can_edit = False
 class SettingsView(ModelView):
     def is_accessible(self):
         # print(Tag.objects.filter(name='Administrator'))
@@ -167,15 +168,6 @@ def logout_view():
     login.logout_user()
     return redirect(url_for('index'))
 
-
-@app.route('/testv')
-@login_required
-def test_view():
-    first_days,last_days = get_arrays(datetime.datetime.now().year)
-    final = []
-    for month in range(0,12):
-        final.append(Files.objects(saved_at__gte=first_days[month],saved_at__lte=last_days[month]).count())
-    return jsonify(final)
 
 
 
@@ -251,12 +243,21 @@ def ping():
 # def index():
 #     return "Nothing Here"
 
-@app.route('/local-storage-aadhar/<path:path>')
+@app.route('/local-storage/<path:path>')
 @login.login_required
 def send_files(path):
     is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
     if login.current_user.is_authenticated and is_admin:
         return send_from_directory('local-storage-aadhar', path.split('/')[-1])
+    else:
+        return abort(403)
+
+@app.route('/remote-storage/<path:path>')
+@login.login_required
+def show_remote_files(path):
+    is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+    if login.current_user.is_authenticated and is_admin:
+        return render_template('remote-view.html', location = create_presigned_url(path))
     else:
         return abort(403)
 # URL Routes
@@ -367,9 +368,12 @@ def handle_file(self, file_name, file_path, uploader):
     # Else store on AWS
     else:
         print("Uploading File to AWS")
-        if not upload_to_aws(file_path, random_name):
-            print("Cannot Upload File to AWS")
-            raise Exception("Cannot Upload File to AWS")
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            temp_location = os.path.join(tmpdirname,random_name)
+            imwrite(temp_location,result)
+            if not upload_to_aws(temp_location, random_name):
+                print("Cannot Upload File to AWS")
+                raise Exception("Cannot Upload File to AWS")
     
     
     #Store on DB
