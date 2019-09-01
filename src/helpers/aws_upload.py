@@ -16,9 +16,9 @@ s3 = boto3.client(
 
 )
 
-def upload_to_aws(local_file, bucket, acl="authenticated-read"):
+def upload_to_aws(local_file, s3_file, bucket=S3_BUCKET, acl="authenticated-read"):
     # Use Filename as S3 FileName Key
-    s3_file = os.path.basename(local_file)
+    #s3_file = os.path.basename(local_file)
     try:
         s3.upload_file(local_file, bucket, s3_file,ExtraArgs={
                 "ACL": acl,

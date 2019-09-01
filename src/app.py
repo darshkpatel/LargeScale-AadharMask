@@ -13,6 +13,7 @@ from image_processors import pdf_to_cv
 from image_processors import new_mask
 from helpers.file_helpers import allowed_file
 from helpers.date_helpers import *
+from helpers.aws_upload import *
 from flask_login import login_required, LoginManager, UserMixin, login_user
 from flask_mongoengine import MongoEngine
 import datetime
@@ -107,6 +108,16 @@ class FilesView(ModelView):
     can_create = False
     can_export = True
 
+class SettingsView(ModelView):
+    def is_accessible(self):
+        # print(Tag.objects.filter(name='Administrator'))
+        # print(User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()))
+        is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+        return login.current_user.is_authenticated and is_admin
+    can_create = True
+    can_export = False
+    can_delete = False
+
 class MyHomeView(AdminIndexView):
     def is_accessible(self):
         # print(Tag.objects.filter(name='Administrator'))
@@ -145,6 +156,7 @@ init_login()
 # Add views
 admin.add_view(UserView(User,name="User Details", category="User Management"))
 admin.add_view(FilesView(Files, name="File Info"))
+admin.add_view(SettingsView(Settings, name="Settings"))
 admin.add_view(ModelView(Tag, name = "Tags/Roles",category="User Management"))
 admin.add_link(MenuLink(name='Logout', url='/logout'))
 
@@ -234,6 +246,7 @@ def taskstatus(task_id):
 @app.route("/ping")
 def ping():
     return "pong"
+    
 # @app.route("/")
 # def index():
 #     return "Nothing Here"
@@ -241,7 +254,8 @@ def ping():
 @app.route('/local-storage-aadhar/<path:path>')
 @login.login_required
 def send_files(path):
-    if login.current_user.is_authenticated and str(login.current_user.username).lower() == "admin":
+    is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+    if login.current_user.is_authenticated and is_admin:
         return send_from_directory('local-storage-aadhar', path.split('/')[-1])
     else:
         return abort(403)
@@ -310,7 +324,7 @@ def new_aadhar():
 
 
 @celery.task(bind=True)
-def handle_file(self, file_name, file_path, uploader, store_local=True, store_remote=False):
+def handle_file(self, file_name, file_path, uploader):
     local_path = ''
 
     if file_name.split(".")[-1]=="pdf":
@@ -318,20 +332,29 @@ def handle_file(self, file_name, file_path, uploader, store_local=True, store_re
     else:
         img = imread(file_path)
     self.update_state(state='PROGRESS', meta={'filename': file_name, 'task_status':"Masking Aadhar" })
-    error, result = new_mask.mask_image(img)
+
+    should_crop = Settings.objects().first().crop_images
+    error, result = new_mask.mask_image(img, crop=should_crop)
     if error:
-        os.remove(file_path)
-        raise ValueError('Unable to Process Aadhar')
+        print("Unable to mask, not cropping image and retrying")
+        error, result = new_mask.mask_image(img,crop=False)
+        if error:
+            os.remove(file_path)
+            raise Exception('Unable to Process Aadhar')
 
     # retval, buffer = imencode('.jpg', result)
 
+    # Check for remote storage setting 
+    remote_storage = Settings.objects().first().remote_storage
+
     # Image Storage
-    if(store_local):
-        random_name = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
-        random_name+='.png'
-        if os.path.exists(os.path.join(app.config['LOCAL_STORAGE'], random_name)):
-            random_name = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
-            random_name+='.png'
+    random_name = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+    random_name+='.png'
+    if( not remote_storage):
+    # In case of collision
+        # if os.path.exists(os.path.join(app.config['LOCAL_STORAGE'], random_name)):
+        #     random_name = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+        #     random_name+='.png'
         local_path = os.path.join(app.config['LOCAL_STORAGE'], random_name)
         try:
             imwrite(local_path,result)
@@ -340,27 +363,40 @@ def handle_file(self, file_name, file_path, uploader, store_local=True, store_re
             print("Error Saving File on Disk")
             app.logger.error(e)
             app.logger.error('Unable to Save Processed file: %s at %s ', file_path, os.path.join(app.config['LOCAL_STORAGE'], random_name))
-        try:
-            # print(str(login.current_user.username))
-            user_uploader = User.objects.filter(username = uploader)
-            # print(uploader.first().to_json())
-            print(uploader)
-            file_metadata = Files(location=local_path, orig_name=file_name, uploader=user_uploader)
-            file_metadata.save()
-        except Exception as e:
-            print(str(e))
-            print("Error Saving File Details to DB, deleting file ")
+            raise Exception(" Cannot Save File On Disk")
+    # Else store on AWS
+    else:
+        print("Uploading File to AWS")
+        if not upload_to_aws(file_path, random_name):
+            print("Cannot Upload File to AWS")
+            raise Exception("Cannot Upload File to AWS")
+    
+    
+    #Store on DB
+    try:
+        # print(str(login.current_user.username))
+        user_uploader = User.objects(username = uploader).first().username
+        # print(uploader.first().to_json())
+        print(uploader)
+        file_metadata = Files(location=random_name, orig_name=file_name, uploader=str(user_uploader))
+        file_metadata.save()
+    except Exception as e:
+        print(str(e))
+        print("Error Saving File Details to DB, deleting file ")
+        if not remote_storage:
             os.remove(local_path)
+            print("Deleted local file")
 
     try:
+        print("Removing Temp File")
         os.remove(file_path)
         self.update_state(state='PROGRESS', meta={'filename': file_name, 'task_status':"Removed Temp File" })
     except:
         app.logger.error('Unable to delete: %s ', file_path)
 
-    self.update_state(state='PROGRESS', meta={'filename': file_name, 'task_status':"Done !", 'local_path':local_path })
+    self.update_state(state='PROGRESS', meta={'filename': file_name, 'task_status':"Done !", 'filename':random_name })
 
-    return {'filename': file_name, 'task_status':"Done !", 'local_path':local_path}
+    return {'filename': file_name, 'task_status':"Done !", 'filename':random_name}
 
 
 @app.route('/aadhar_multi', methods=['GET', 'POST'])
