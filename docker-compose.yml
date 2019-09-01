@@ -11,6 +11,8 @@ services:
       - run_vol:/var/run
       - cache_vol:/var/cache
       - tmp_vol:/tmp
+    env_file:
+        - aws-creds.env
     depends_on:
         - redis
         - mongodb
@@ -36,6 +38,8 @@ services:
     depends_on:
         - redis
         - mongodb
+    env_file:
+    - aws-creds.env
 
         
   redis:
