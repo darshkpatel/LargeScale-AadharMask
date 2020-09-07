@@ -84,8 +84,7 @@ db = MongoEngine(app)
 
 class UserView(ModelView):
     def is_accessible(self):
-        # print(Tag.objects.filter(name='Administrator'))
-        # print(User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()))
+       
         is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
         return login.current_user.is_authenticated and is_admin
     column_filters = ['username']
@@ -99,10 +98,9 @@ class UserView(ModelView):
         }
     }
 
+
 class FilesView(ModelView):
     def is_accessible(self):
-        # print(Tag.objects.filter(name='Administrator'))
-        # print(User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()))
         is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
         return login.current_user.is_authenticated and is_admin
     can_create = False
@@ -111,8 +109,7 @@ class FilesView(ModelView):
     can_edit = False
 class SettingsView(ModelView):
     def is_accessible(self):
-        # print(Tag.objects.filter(name='Administrator'))
-        # print(User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()))
+       
         is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
         return login.current_user.is_authenticated and is_admin
     can_create = True
@@ -121,8 +118,7 @@ class SettingsView(ModelView):
 
 class MyHomeView(AdminIndexView):
     def is_accessible(self):
-        # print(Tag.objects.filter(name='Administrator'))
-        # print(User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()))
+       
         is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
         return login.current_user.is_authenticated and is_admin
     @expose('/')
@@ -158,8 +154,12 @@ init_login()
 admin.add_view(UserView(User,name="User Details", category="User Management"))
 admin.add_view(FilesView(Files, name="File Info"))
 admin.add_view(SettingsView(Settings, name="Settings"))
-admin.add_view(ModelView(Tag, name = "Tags/Roles",category="User Management"))
+
+#Extra Links
 admin.add_link(MenuLink(name='Logout', url='/logout'))
+
+#Direct Model Views
+admin.add_view(ModelView(Tag, name = "Tags/Roles",category="User Management"))
 
 
 
@@ -193,7 +193,6 @@ def login_post():
     else:
         return render_template('login.html')
 
-# Flask views
 @app.route('/')
 def index():
     if login.current_user.is_authenticated:
@@ -238,10 +237,6 @@ def taskstatus(task_id):
 @app.route("/ping")
 def ping():
     return "pong"
-    
-# @app.route("/")
-# def index():
-#     return "Nothing Here"
 
 @app.route('/local-storage/<path:path>')
 @login.login_required
@@ -342,13 +337,8 @@ def handle_file(self, file_name, file_path, uploader):
         if error:
             os.remove(file_path)
             raise Exception('Unable to Process Aadhar')
-
-    # retval, buffer = imencode('.jpg', result)
-
-    # Check for remote storage setting 
     remote_storage = Settings.objects().first().remote_storage
 
-    # Image Storage
     random_name = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
     random_name+='.png'
     if( not remote_storage):
@@ -365,7 +355,6 @@ def handle_file(self, file_name, file_path, uploader):
             app.logger.error(e)
             app.logger.error('Unable to Save Processed file: %s at %s ', file_path, os.path.join(app.config['LOCAL_STORAGE'], random_name))
             raise Exception(" Cannot Save File On Disk")
-    # Else store on AWS
     else:
         print("Uploading File to AWS")
         with tempfile.TemporaryDirectory() as tmpdirname:
@@ -425,8 +414,8 @@ def multi_aadhar():
                 file.save(filepath)
                 file_objs.append({"task_id":handle_file.apply_async(args=[filename, filepath, uploader]).id, "filename":filename})
             else:
-                continue
-                # return jsonify({'error':'Invalid or Corrupt File'})
+                # continue
+                return jsonify({'error':'Invalid or Corrupt File'})
 
         return jsonify({"data":file_objs, "status":"ok"})
                 

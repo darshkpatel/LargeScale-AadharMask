@@ -11,8 +11,6 @@ class User(db.Document, UserMixin):
     password = db.StringField(required=True)
     tags = db.ListField(db.ReferenceField('Tag'), default=[])
 
-
-
     def __unicode__(self):
         return self.username
     

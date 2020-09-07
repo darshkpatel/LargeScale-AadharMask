@@ -20,6 +20,7 @@ services:
         - celery
     environment:
       PYTHONUNBUFFERED: 'true'
+      PYTHONWARNINGS: "ignore:Unverified HTTPS request"
     links:
         - "redis:redis_cache"
         - "mongodb:mongo"
@@ -40,8 +41,10 @@ services:
         - mongodb
     env_file:
     - aws-creds.env
+    environment:
+          PYTHONWARNINGS: "ignore:Unverified HTTPS request"
 
-        
+
   redis:
       image: "redis:alpine"
       environment:
