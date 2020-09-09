@@ -48,6 +48,7 @@ class Files(db.Document):
     saved_at = db.DateTimeField(default=datetime.datetime.now)
     uploader = db.StringField()
     remote_storage = db.BooleanField(default = False)
+
 class Settings(db.Document):
     remote_storage = db.BooleanField(default = False, unique=True)
     crop_images = db.BooleanField(default = True, unique=True)

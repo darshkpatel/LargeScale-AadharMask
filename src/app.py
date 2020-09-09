@@ -30,6 +30,7 @@ from flask_admin.menu import MenuLink
 from flask_admin.contrib.mongoengine import ModelView
 import random, string
 from werkzeug.security import generate_password_hash, check_password_hash
+from markupsafe import Markup
 
 
 
@@ -107,6 +108,17 @@ class FilesView(ModelView):
     can_export = True
     can_delete = True
     can_edit = False
+    def _format_location(view, context, model, name):
+
+
+        _html = '''
+            <a href="{location_url}"> {filename} - Click to view</a>
+        '''.format(location_url='/local-storage/'+model.location, filename=model.location)
+
+        return Markup(_html)
+    column_formatters = dict(location=_format_location)
+
+
 class SettingsView(ModelView):
     def is_accessible(self):
        
@@ -403,7 +415,7 @@ def multi_aadhar():
 
         for file in uploaded_files:
             if file.filename == '':
-                continue
+                app.logger.error('Empty File Detected !')
                 # return jsonify({'error':'Empty File'})
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
@@ -420,21 +432,6 @@ def multi_aadhar():
         return jsonify({"data":file_objs, "status":"ok"})
                 
                     
-
-
-
-            
-    return '''
-    <!doctype html>
-    <title>Test Masking Endpoint</title>
-    <h1>Test Masking Endpoint</h1>
-    <h3>Upload Any file</h3>
-    <form method=post action="/aadhar_multi" enctype=multipart/form-data>
-      <input type=file name=file accept="*" multiple>
-      <input type=submit value=Upload>
-    </form>
-    '''
-
 
 if __name__ == "__main__":
 
