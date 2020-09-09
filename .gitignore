@@ -15,3 +15,4 @@ venv/
 *.ipynb
 SampleImages
 local-storage-aadhar/
+dump.rdb
