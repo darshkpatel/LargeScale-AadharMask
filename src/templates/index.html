@@ -82,16 +82,18 @@ form button:active{
                                 Home
                             </a>
 
-                            <a href="{{ url_for('login_post') }}" class="navbar-item">
-                                Login
-                            </a>
 
                             <a href="{{ url_for('logout_view') }}" class="navbar-item">
                                 Logout
                             </a>
+                            {% if user.tags[0].name == 'Administrator' %}
+
                             <a href="{{ url_for('admin.index') }}" class="navbar-item">
                                 Admin Panel
                             </a>
+
+                            {% endif %}
+
                         </div>
                     </div>
                 </div>
@@ -112,7 +114,7 @@ form button:active{
 
                 {% if user.is_authenticated %}
                 <h1 class="is-size-1 has-text-weight-bold">
-                    Hello, {{ user.username }} !
+                    Hello, {{ user.username }}!
                 </h1>
                 {% else %}
                 <h6>
