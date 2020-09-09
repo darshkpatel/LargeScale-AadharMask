@@ -124,9 +124,11 @@ class SettingsView(ModelView):
        
         is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
         return login.current_user.is_authenticated and is_admin
-    can_create = True
     can_export = False
     can_delete = False
+    can_edit = True
+    can_create = False
+
 
 class MyHomeView(AdminIndexView):
     def is_accessible(self):

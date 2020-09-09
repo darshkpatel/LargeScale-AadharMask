@@ -7,8 +7,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 class User(db.Document, UserMixin):
     active = db.BooleanField(default=True)
-    username = db.StringField(max_length=40, unique=True, required=True)
-    password = db.StringField(required=True)
+    username = db.StringField(max_length=40, unique=True, required=True, min_length=3)
+    password = db.StringField(required=True,min_length=8)
     tags = db.ListField(db.ReferenceField('Tag'), default=[])
 
     def __unicode__(self):
@@ -38,7 +38,7 @@ class User(db.Document, UserMixin):
 
 
 class Tag(db.Document):
-    name = db.StringField(max_length=50)
+    name = db.StringField(max_length=20, unique=True,  min_length=3)
     def __unicode__(self):
         return self.name
 
