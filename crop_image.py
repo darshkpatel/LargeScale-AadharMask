@@ -123,9 +123,7 @@ def find_components(edges, max_components=16):
         dilated_image = np.uint8(dilated_image)
         contours, hierarchy = cv2.findContours(dilated_image, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         count = len(contours)
-    # print dilation
-    # Image.fromarray(edges).show()
-    # Image.fromarray(255 * dilated_image).show()
+
     return contours
 
 
@@ -158,17 +156,11 @@ def find_optimal_components_subset(contours, edges):
             new_prec = 1 - 1.0 * crop_area(new_crop) / area
             new_f1 = 2 * new_prec * new_recall / (new_prec + new_recall)
 
-            # Add this crop if it improves f1 score,
-            # _or_ it adds 25% of the remaining pixels for <15% crop expansion.
-            # ^^^ very ad-hoc! make this smoother
             remaining_frac = c['sum'] / (total - covered_sum)
             new_area_frac = 1.0 * crop_area(new_crop) / crop_area(crop) - 1
             if new_f1 > f1 or (
                     remaining_frac > 0.25 and new_area_frac < 0.15):
-                # print('%d %s -> %s / %s (%s), %s -> %s / %s (%s), %s -> %s' % (
-                #     i, covered_sum, new_sum, total, remaining_frac,
-                #     crop_area(crop), crop_area(new_crop), area, new_area_frac,
-                #     f1, new_f1))
+
                 crop = new_crop
                 covered_sum = new_sum
                 del c_info[i]
@@ -266,17 +258,6 @@ def process_image(img):
     crop = pad_crop(crop, contours, edges, border_contour)
 
     crop = [int(x / scale) for x in crop]  # upscale to the original image size.
-
-    # draw = ImageDraw.Draw(im)
-    # c_info = props_for_contours(contours, edges)
-    # for c in c_info:
-    #    this_crop = c['x1'], c['y1'], c['x2'], c['y2']
-    #    draw.rectangle(this_crop, outline='blue')
-    # draw.rectangle(crop, outline='red')
-    # im.save(out_path)
-    # draw.text((50, 50), path, fill='red')
-    # orig_im.save(out_path)
-    # im.show()
     text_im = orig_im.crop(crop)
     return text_im
 
