@@ -1,0 +1,23 @@
+name: Docker Build and Tests
+
+on:
+  push:
+    branches:
+        - "master"
+
+
+jobs:
+
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Build Images
+      run: |
+        docker-compose -f docker-compose.yml build
+    - name: Run Flask Test Suite
+      run: |
+        docker-compose -f docker-compose.yml run web python3 tests.py
