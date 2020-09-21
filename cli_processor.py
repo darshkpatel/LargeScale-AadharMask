@@ -9,6 +9,8 @@ def dir_path(string):
     else:
         raise NotADirectoryError(string)
 
+
+# Arg Parsing and help message 
 parser = argparse.ArgumentParser()
 parser = argparse.ArgumentParser(description='Aadhar Masking')
 parser.add_argument('--dir',dest='dirpath', help='Process all files inside directory', type=dir_path)
@@ -34,11 +36,12 @@ for (dirpath, dirnames, filenames) in os.walk(args.dirpath):
 total_files = len(f)
 print("Processing {} files in {}".format(total_files, args.dirpath))
 
+# Sanity check to create folder
 if not os.path.exists(os.path.join(args.dirpath,"processed")):
     print("[INFO] Creating Processed Files Directory")
     os.makedirs(os.path.join(args.dirpath,"processed"))
     
-
+# Parse files sequentially
 for index,file in enumerate(f):
     print("[INFO] Processing File {} / {} => {} ".format(index+1,total_files,file))
     if file.split(".")[-1]=="pdf":
