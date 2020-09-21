@@ -1,0 +1,100 @@
+version: '3'
+services:
+  web:
+    build: .
+    # command: "python3 -u app.py"
+    command: "python3 tests.py"
+    ports:
+      - "5000"
+    volumes:
+      - ./src:/app
+      - run_vol:/var/run
+      - cache_vol:/var/cache
+      - tmp_vol:/tmp
+
+    depends_on:
+        - redis
+        - mongodb
+        - mongoseed
+        - celery
+    environment:
+      PYTHONUNBUFFERED: 'true'
+      PYTHONWARNINGS: "ignore:Unverified HTTPS request"
+    links:
+        - "redis:redis_cache"
+        - "mongodb:mongo"
+
+  celery:
+    build: .
+    command: celery -A app.celery worker -l info --concurrency=1
+    links:
+        - "redis:redis_cache"
+        - "mongodb:mongo"
+    volumes:
+      - ./src:/app
+      - run_vol:/var/run
+      - cache_vol:/var/cache
+      - tmp_vol:/tmp
+    depends_on:
+        - redis
+        - mongodb
+
+    environment:
+          PYTHONWARNINGS: "ignore:Unverified HTTPS request"
+
+
+  redis:
+      image: "redis:alpine"
+      environment:
+        - ALLOW_EMPTY_PASSWORD=yes
+        - REDIS_DISABLE_COMMANDS=FLUSHDB,FLUSHALL
+  #     ports:
+  #       - '6379:6379'
+      volumes:
+          - redis-data:/data
+  mongodb:
+    image: mongo:latest
+    container_name: "mongodb"
+    environment:
+      - MONGO_DATA_DIR=/usr/data/db/
+      - MONGO_LOG_DIR=/dev/null
+    volumes:
+      - ./mongo-db:/usr/data/db
+    # ports:
+    #   - 27017:27017
+    command: mongod
+
+  mongoseed:
+    build: ./db-seed
+    container_name: "mongoseed"
+    links:
+            - "mongodb:mongo"
+    depends_on:
+      - mongodb
+    volumes:
+            - ./db-seed:/seed-db
+
+    command: mongorestore --uri "mongodb://mongodb" -d "AadharMaskDB" /seed-db/AadharMaskDB
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - web
+    ports:
+      - "5002:5002"
+
+volumes:
+  redis-data:
+  run_vol:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  cache_vol:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  tmp_vol:
+    driver_opts:
+      type: tmpfs
+      device: tmpfs

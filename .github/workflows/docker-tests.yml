@@ -17,7 +17,7 @@ jobs:
 
     - name: Build Images
       run: |
-        docker-compose -f docker-compose.yml build
+        docker-compose -f docker-compose.test.yml build
     - name: Run Flask Test Suite
       run: |
-        docker-compose -f docker-compose.yml run web python3 tests.py
+        docker-compose -f docker-compose.test.yml run web python3 tests.py
