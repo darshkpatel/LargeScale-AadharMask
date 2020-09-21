@@ -38,7 +38,7 @@ class User(db.Document, UserMixin):
 
 
 class Tag(db.Document):
-    name = db.StringField(max_length=20, unique=True,  min_length=3)
+    name = db.StringField(max_length=20, unique=True,  min_length=3, required=True)
     def __unicode__(self):
         return self.name
 
