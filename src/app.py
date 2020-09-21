@@ -418,7 +418,6 @@ def multi_aadhar():
         for file in uploaded_files:
             if file.filename == '':
                 app.logger.error('Empty File Detected !')
-                # return jsonify({'error':'Empty File'})
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 app.logger.info('Got Uploaded File: %s ', filename)
@@ -431,7 +430,10 @@ def multi_aadhar():
                 # continue
                 return jsonify({'error':'Invalid or Corrupt File'})
 
-        return jsonify({"data":file_objs, "status":"ok"})
+        # return jsonify({"data":file_objs, "status":"ok"})
+        flash(f'Processing {len(file_objs)} Documents')
+        return render_template('index.html', user=login.current_user)
+
                 
                     
 
