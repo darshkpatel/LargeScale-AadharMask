@@ -33,11 +33,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from markupsafe import Markup
 
 
-
-
-#ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'pdf']) # FOUND IN HELPERS allowed_file
-
-
 #Setup Logging
 
 app = Flask(__name__)
@@ -86,7 +81,7 @@ db = MongoEngine(app)
 class UserView(ModelView):
     def is_accessible(self):
        
-        is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+        is_admin = check_admin()
         return login.current_user.is_authenticated and is_admin
     column_filters = ['username']
 
@@ -102,7 +97,7 @@ class UserView(ModelView):
 
 class FilesView(ModelView):
     def is_accessible(self):
-        is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+        is_admin = check_admin()
         return login.current_user.is_authenticated and is_admin
     can_create = False
     can_export = True
@@ -122,7 +117,7 @@ class FilesView(ModelView):
 class SettingsView(ModelView):
     def is_accessible(self):
        
-        is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+        is_admin = check_admin()
         return login.current_user.is_authenticated and is_admin
     can_export = False
     can_delete = False
@@ -133,7 +128,7 @@ class SettingsView(ModelView):
 class MyHomeView(AdminIndexView):
     def is_accessible(self):
        
-        is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+        is_admin = check_admin()
         return login.current_user.is_authenticated and is_admin
     @expose('/')
     def index(self):
@@ -150,12 +145,6 @@ def init_login():
     login_manager = login.LoginManager()
     login_manager.setup_app(app)
     login_manager.login_view = 'login_post'
-
-    # @login_manager.user_loader
-    # def load_user(user_id):
-    #     # since the user_id is just the primary key of our user table, use it in the query for the user
-    #     return User.query.get(int(username))
-    # Create user loader function
     @login_manager.user_loader
     def load_user(user_id):
         return User.objects(username=user_id).first()
@@ -255,7 +244,7 @@ def ping():
 @app.route('/local-storage/<path:path>')
 @login.login_required
 def send_files(path):
-    is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+    is_admin = check_admin()
     if login.current_user.is_authenticated and is_admin:
         return send_from_directory('local-storage-aadhar', path.split('/')[-1])
     else:
@@ -264,73 +253,12 @@ def send_files(path):
 @app.route('/remote-storage/<path:path>')
 @login.login_required
 def show_remote_files(path):
-    is_admin = User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+    is_admin = check_admin()
     if login.current_user.is_authenticated and is_admin:
         return render_template('remote-view.html', location = create_presigned_url(path))
     else:
         return abort(403)
 # URL Routes
-
-### MASK ALL TEXT
-
-"""
-
-NEW MASKING SCRIPT
-
-"""
-
-
-
-@app.route('/aadhar_single', methods=['GET', 'POST'])
-@login_required
-def new_aadhar():
-    if request.method == 'POST':
-        # check if the post request has the file part
-        if 'file' not in request.files:
-            return jsonify({'error':'Empty File'})
-        file = request.files['file']
-
-        # if user does not select file, browser also
-        # submit an empty part without filename
-        if file.filename == '':
-            return jsonify({'error':'Empty File'})
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            app.logger.info('Got Uploaded File: %s ', filename)
-            with tempfile.TemporaryDirectory() as tmpdir:
-                filepath = os.path.join(tmpdir, filename)
-                file.save(filepath)
-                if filepath.split(".")[-1]=="pdf":
-                    img = pdf_to_cv.read(filepath)
-                else:
-                    img = imread(filepath)
-                isErrorOccured = False
-                error, result = new_mask.mask_image(img)
-                if error and not isErrorOccured:
-                    print("masking without crop")
-                    error, result = new_mask.mask_image(img,crop=False)
-                    isErrorOccured = True
-                elif error and isErrorOccured:
-                    return("Unable to mask")
-
-                retval, buffer = imencode('.jpg', result)
-                jpg_as_text = base64.b64encode(buffer)
-                result = "data:image/jpg;base64,"+str(jpg_as_text, "utf-8")
-                return("<img src=\""+result+"\">")
-        else:
-            return jsonify({'error':'Empty File'})
-
-            
-    return '''
-    <!doctype html>
-    <title>Test Masking Endpoint</title>
-    <h1>Test Masking Endpoint</h1>
-    <h3>Upload Any file</h3>
-    <form method=post action="/aadhar_single" enctype=multipart/form-data>
-      <input type=file name=file accept="*">
-      <input type=submit value=Upload>
-    </form>
-    '''
 
 
 @celery.task(bind=True)
@@ -435,7 +363,9 @@ def multi_aadhar():
         return render_template('index.html', user=login.current_user)
 
                 
-                    
+def check_admin():
+    return User.objects(username=str(login.current_user.username), tags__in=Tag.objects.filter(name='Administrator').all()).count() >= 1
+
 
 if __name__ == "__main__":
 
