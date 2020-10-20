@@ -4,6 +4,7 @@ from werkzeug.utils import secure_filename
 import json,os,base64
 import tempfile
 from celery.signals import after_setup_logger
+import hashlib
 import numpy.core.multiarray
 from cv2 import imread, imencode, imwrite
 import time, random
@@ -11,6 +12,7 @@ import base64
 from celery import Celery
 from image_processors import pdf_to_cv
 from image_processors import new_mask
+from image_processors import qrcode
 from helpers.file_helpers import allowed_file
 from helpers.date_helpers import *
 from helpers.aws_upload import *
@@ -270,12 +272,15 @@ def handle_file(self, file_name, file_path, uploader):
     else:
         img = imread(file_path)
     self.update_state(state='PROGRESS', meta={'filename': file_name, 'task_status':"Masking Aadhar" })
-
     should_crop = Settings.objects().first().crop_images
-    error, result = new_mask.mask_image(img, crop=should_crop)
+    
+    
+    error, result, aadhar = new_mask.mask_image(img, crop=should_crop)
+    result = qrcode.process(result)
     if error:
         print("Unable to mask, not cropping image and retrying")
-        error, result = new_mask.mask_image(img,crop=False)
+        error, result, aadhar = new_mask.mask_image(img,crop=False)
+        result = qrcode.process(result)
         if error:
             os.remove(file_path)
             raise Exception('Unable to Process Aadhar')
@@ -313,7 +318,9 @@ def handle_file(self, file_name, file_path, uploader):
         user_uploader = User.objects(username = uploader).first().username
         # print(uploader.first().to_json())
         print(uploader)
-        file_metadata = Files(location=random_name, orig_name=file_name, uploader=str(user_uploader))
+        # hashing aadhar number
+        aadhar = hashlib.md5(str(aadhar).encode('utf-8')).hexdigest()
+        file_metadata = Files(location=random_name, orig_name=file_name, uploader=str(user_uploader), aadhar_num=str(aadhar))
         file_metadata.save()
     except Exception as e:
         print(str(e))
