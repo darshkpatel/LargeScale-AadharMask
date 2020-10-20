@@ -106,8 +106,10 @@ def mask_image(img ,thresh=15, crop=True):
     aadhar_uid=aadhar_uid.groupby('block_num').filter(lambda x: len(x) >= 2)
     if aadhar_uid.empty:
         print("[ERROR] Unable to process image, no UID found")
-        return True, ""
+        return True, "", ""
     to_mask = aadhar_uid.groupby('block_num').head(2).reset_index(drop=True)
+    # print(''.join(aadhar_uid['text'].tolist()))
+    aadhar = ''.join(aadhar_uid['text'].tolist())
     try:
         masked_image = mask(orig,to_mask)
     except Exception as e:
@@ -115,5 +117,5 @@ def mask_image(img ,thresh=15, crop=True):
         print(e)
         print("[ERROR] Exception Caught, Continuing")
     print("Masked Successfully")
-    return False, masked_image
+    return False, masked_image, aadhar
 
