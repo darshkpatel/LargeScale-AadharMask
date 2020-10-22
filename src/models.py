@@ -47,7 +47,7 @@ class Files(db.Document):
     orig_name = db.StringField(required=True)
     saved_at = db.DateTimeField(default=datetime.datetime.now)
     uploader = db.StringField()
-    aadhar_num = db.StringField()
+    aadhar_hash = db.StringField()
     remote_storage = db.BooleanField(default = False)
 
 class Settings(db.Document):

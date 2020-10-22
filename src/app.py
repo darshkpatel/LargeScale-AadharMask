@@ -156,6 +156,7 @@ admin = admin.Admin(app, 'Aadhar Masking Endpoint', index_view=MyHomeView())
 init_login()
 
 # Add views
+admin.add_link(MenuLink(name='Upload', url='/'))
 admin.add_view(UserView(User,name="User Details", category="User Management"))
 admin.add_view(FilesView(Files, name="File Info"))
 admin.add_view(SettingsView(Settings, name="Settings"))
@@ -320,7 +321,7 @@ def handle_file(self, file_name, file_path, uploader):
         print(uploader)
         # hashing aadhar number
         aadhar = hashlib.md5(str(aadhar).encode('utf-8')).hexdigest()
-        file_metadata = Files(location=random_name, orig_name=file_name, uploader=str(user_uploader), aadhar_num=str(aadhar))
+        file_metadata = Files(location=random_name, orig_name=file_name, uploader=str(user_uploader), aadhar_hash=str(aadhar))
         file_metadata.save()
     except Exception as e:
         print(str(e))

@@ -5,7 +5,7 @@ services:
     # command: "python3 -u app.py"
     command: "gunicorn -w 3 -t 120 -b 0.0.0.0:5000 --reload --access-logfile - app:app"
     ports:
-      - "5000"
+      - "5000:5000"
     volumes:
       - ./src:/app
       - run_vol:/var/run
