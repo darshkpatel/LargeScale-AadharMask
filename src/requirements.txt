@@ -2,7 +2,7 @@ amqp==2.5.0
 billiard==3.6.0.0
 celery==4.3.0
 Click==7.0
-Flask==1.0.3
+Flask==2.3.2
 Flask-Limiter==1.0.1
 Flask-PyMongo==2.3.0
 geom==0.2
